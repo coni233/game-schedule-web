@@ -35,14 +35,17 @@ function requireEditPassword($data) {
     if ($password === "") {
         jsonResponse([
             "success" => false,
-            "message" => "请输入编辑密码"
+            "message" => "请输入编辑密码或管理员密码"
         ], 401);
     }
 
-    if (!hash_equals(EDIT_PASSWORD, $password)) {
+    $isEditPasswordValid = hash_equals(EDIT_PASSWORD, $password);
+    $isAdminPasswordValid = hash_equals(ADMIN_PASSWORD, $password);
+
+    if (!$isEditPasswordValid && !$isAdminPasswordValid) {
         jsonResponse([
             "success" => false,
-            "message" => "编辑密码错误"
+            "message" => "编辑密码或管理员密码错误"
         ], 403);
     }
 }

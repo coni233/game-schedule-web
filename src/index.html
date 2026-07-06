@@ -243,7 +243,7 @@
     <input 
       id="adminPasswordInput" 
       type="password" 
-      placeholder="仅用于清空全部"
+      placeholder="可执行全部操作"
     />
   </div>
 </div>
@@ -400,10 +400,10 @@
       return;
     }
 
-    const editPassword = getEditPassword();
+    const operationPassword = getOperationPassword();
 
-    if (!editPassword) {
-      alert("请先输入编辑密码。");
+    if (!operationPassword) {
+      alert("请先输入编辑密码或管理员密码。");
       editPasswordInput.focus();
       return;
     }
@@ -444,7 +444,7 @@
           hour,
           game: trimmedGame,
           nickname,
-          editPassword
+          editPassword: operationPassword
         })
       });
 
@@ -556,6 +556,13 @@
 
   function getAdminPassword() {
     return adminPasswordInput.value.trim();
+  }
+
+  function getOperationPassword() {
+    const editPassword = getEditPassword();
+    const adminPassword = getAdminPassword();
+
+    return editPassword || adminPassword;
   }
 
   function isWorkTime(dayIndex, hour) {
