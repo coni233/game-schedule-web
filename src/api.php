@@ -5,6 +5,7 @@ require_once "db.php";
 
 $config = require __DIR__ . "/config.php";
 define("EDIT_PASSWORD", $config["edit_password"]);
+define("ADMIN_PASSWORD", $config["admin_password"]);
 
 $days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
@@ -42,6 +43,24 @@ function requireEditPassword($data) {
         jsonResponse([
             "success" => false,
             "message" => "编辑密码错误"
+        ], 403);
+    }
+}
+
+function requireAdminPassword($data) {
+    $password = trim((string)($data["adminPassword"] ?? ""));
+
+    if ($password === "") {
+        jsonResponse([
+            "success" => false,
+            "message" => "请输入管理员密码"
+        ], 401);
+    }
+
+    if (!hash_equals(ADMIN_PASSWORD, $password)) {
+        jsonResponse([
+            "success" => false,
+            "message" => "管理员密码错误，无法清空全部日程"
         ], 403);
     }
 }
@@ -204,7 +223,7 @@ if ($action === "clear") {
     }
 
     $data = getJsonInput();
-    requireEditPassword($data);
+    requireAdminPassword($data);
 
     $stmt = $pdo->prepare("
         DELETE FROM game_schedule_slots

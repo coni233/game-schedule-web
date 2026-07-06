@@ -238,6 +238,14 @@
       placeholder="请输入编辑密码"
     />
   </div>
+  <div class="form-group">
+    <label for="adminPasswordInput">管理员密码</label>
+    <input 
+      id="adminPasswordInput" 
+      type="password" 
+      placeholder="仅用于清空全部"
+    />
+  </div>
 </div>
 
 <div class="status" id="status">正在加载共享日程...</div>
@@ -279,6 +287,7 @@
   const clearBtn = document.getElementById("clearBtn");
   const nicknameInput = document.getElementById("nicknameInput");
   const editPasswordInput = document.getElementById("editPasswordInput");
+  const adminPasswordInput = document.getElementById("adminPasswordInput");
 
   let schedule = {};
   let isEditing = false;
@@ -454,11 +463,11 @@
   }
 
   async function clearAllEditableSchedules() {
-    const editPassword = getEditPassword();
+    const adminPassword = getAdminPassword();
 
-    if (!editPassword) {
-      alert("请先输入编辑密码。");
-      editPasswordInput.focus();
+    if (!adminPassword) {
+      alert("清空全部日程需要输入管理员密码。");
+      adminPasswordInput.focus();
       return;
     }
 
@@ -473,7 +482,7 @@
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          editPassword
+          adminPassword
         })
       });
 
@@ -543,6 +552,10 @@
 
   function getEditPassword() {
     return editPasswordInput.value.trim();
+  }
+
+  function getAdminPassword() {
+    return adminPasswordInput.value.trim();
   }
 
   function isWorkTime(dayIndex, hour) {
