@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>cn的游戏日程表</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      background: #f5f6fa;
+      color: #333;
+    }
+
+    header {
+      padding: 20px;
+      background: #24292f;
+      color: white;
+      text-align: center;
+    }
+
+    .hint {
+      text-align: center;
+      color: #666;
+      margin: 14px auto;
+      line-height: 1.7;
+    }
+
+    .status {
+      text-align: center;
+      margin: 12px auto 18px;
+      color: #2563eb;
+      font-size: 14px;
+    }
+
+    .user-panel {
+      width: 95%;
+      max-width: 900px;
+      margin: 18px auto;
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .form-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+    }
+
+    input {
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+
+    .toolbar {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+      font-size: 14px;
+      margin: 0 4px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .clear-btn {
+      background: #ef4444;
+    }
+
+    .clear-btn:hover {
+      background: #dc2626;
+    }
+
+    .calendar-wrapper {
+      width: 95%;
+      margin: 0 auto 40px;
+      overflow-x: auto;
+    }
+
+    .calendar {
+      width: 100%;
+      min-width: 900px;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .calendar th,
+    .calendar td {
+      border: 1px solid #e5e7eb;
+      text-align: center;
+    }
+
+    .calendar th {
+      background: #f0f2f5;
+      height: 50px;
+      font-weight: bold;
+    }
+
+    .time-cell {
+      width: 90px;
+      background: #fafafa;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .slot {
+      width: 140px;
+      height: 78px;
+      cursor: pointer;
+      position: relative;
+      transition: 0.2s;
+      vertical-align: top;
+      padding: 6px;
+    }
+
+    .slot:hover {
+      background: #eef6ff;
+    }
+
+    .slot.has-game {
+      background: #dff3ff;
+      color: #0f4c81;
+      font-weight: bold;
+    }
+
+    .slot.unavailable {
+      background: #f3f4f6;
+      color: #999;
+      cursor: not-allowed;
+      font-weight: normal;
+    }
+
+    .slot.unavailable:hover {
+      background: #f3f4f6;
+    }
+
+    .game-title {
+      font-size: 14px;
+      margin-top: 6px;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+
+    .nickname-label {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 6px;
+      font-weight: normal;
+    }
+
+    .work-label {
+      font-size: 13px;
+      margin-top: 12px;
+      color: #888;
+    }
+
+    .empty-label {
+      font-size: 12px;
+      color: #bbb;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 700px) {
+      .user-panel {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .form-group {
+        justify-content: space-between;
+      }
+
+      input {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🎮 cn的游戏日程表</h1>
+</header>
+
+<p class="hint">
+  点击空闲时间段，填写这个时间要打的游戏。<br>
+  周一到周五 09:00-12:00、14:00-18:00 是上班时间，不能添加日程。
+
+</p>
+
+<div class="user-panel">
+  <div class="form-group">
+    <label for="nicknameInput">昵称</label>
+    <input 
+      id="nicknameInput" 
+      type="text" 
+      maxlength="20" 
+      placeholder="例如：吉诺"
+    />
+  </div>
+
+  <div class="form-group">
+    <label for="editPasswordInput">编辑密码</label>
+    <input 
+      id="editPasswordInput" 
+      type="password" 
+      placeholder="请输入编辑密码"
+    />
+  </div>
+</div>
+
+<div class="status" id="status">正在加载共享日程...</div>
+
+<div class="toolbar">
+  <button id="refreshBtn">刷新</button>
+  <button id="exportBtn">导出日程</button>
+  <button class="clear-btn" id="clearBtn">清空全部可编辑日程</button>
+</div>
+
+<div class="calendar-wrapper">
+  <table class="calendar">
+    <thead>
+      <tr>
+        <th>时间</th>
+        <th>周一</th>
+        <th>周二</th>
+        <th>周三</th>
+        <th>周四</th>
+        <th>周五</th>
+        <th>周六</th>
+        <th>周日</th>
+      </tr>
+    </thead>
+    <tbody id="calendarBody"></tbody>
+  </table>
+</div>
+
+<script>
+  const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+
+  const startHour = 8;
+  const endHour = 24;
+
+  const calendarBody = document.getElementById("calendarBody");
+  const statusEl = document.getElementById("status");
+  const refreshBtn = document.getElementById("refreshBtn");
+  const exportBtn = document.getElementById("exportBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const nicknameInput = document.getElementById("nicknameInput");
+  const editPasswordInput = document.getElementById("editPasswordInput");
+
+  let schedule = {};
+  let isEditing = false;
+
+  nicknameInput.value = localStorage.getItem("gameScheduleNickname") || "";
+
+  nicknameInput.addEventListener("input", () => {
+    localStorage.setItem("gameScheduleNickname", nicknameInput.value.trim());
+  });
+
+  createCalendar();
+  loadSchedule();
+
+  // 每 3 秒自动刷新一次，别人添加后你也能看到
+  setInterval(() => {
+    if (!isEditing) {
+      loadSchedule(false);
+    }
+  }, 3000);
+
+  refreshBtn.addEventListener("click", () => loadSchedule(true));
+  exportBtn.addEventListener("click", exportSchedule);
+  clearBtn.addEventListener("click", clearAllEditableSchedules);
+
+  async function loadSchedule(showStatus = true) {
+    try {
+      if (showStatus) {
+        statusEl.textContent = "正在加载共享日程...";
+      }
+
+      const response = await fetch("api.php?action=list", {
+        cache: "no-store"
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || "加载失败");
+      }
+
+      schedule = {};
+
+      result.items.forEach(item => {
+        schedule[item.slot_id] = {
+          game: item.game,
+          nickname: item.nickname || "匿名玩家",
+          day: item.day_name,
+          dayIndex: Number(item.day_index),
+          hour: Number(item.hour),
+          updatedAt: item.updated_at
+        };
+      });
+
+      createCalendar();
+      statusEl.textContent = "共享日程已同步";
+    } catch (error) {
+      console.error(error);
+      statusEl.textContent = "加载失败，请检查 api.php 或数据库连接";
+    }
+  }
+
+  function createCalendar() {
+    calendarBody.innerHTML = "";
+
+    for (let hour = startHour; hour < endHour; hour++) {
+      const row = document.createElement("tr");
+
+      const timeCell = document.createElement("td");
+      timeCell.className = "time-cell";
+      timeCell.textContent = `${formatHour(hour)} - ${formatHour(hour + 1)}`;
+      row.appendChild(timeCell);
+
+      days.forEach((day, dayIndex) => {
+        const slot = document.createElement("td");
+        const slotId = getSlotId(dayIndex, hour);
+
+        slot.className = "slot";
+
+        if (isWorkTime(dayIndex, hour)) {
+          slot.classList.add("unavailable");
+          slot.innerHTML = `<div class="work-label">上班</div>`;
+        } else {
+          if (schedule[slotId]) {
+            slot.classList.add("has-game");
+            slot.title = schedule[slotId].updatedAt
+              ? `最后更新：${schedule[slotId].updatedAt}`
+              : "";
+
+            slot.innerHTML = `
+              <div class="game-title">${escapeHTML(schedule[slotId].game)}</div>
+              <div class="nickname-label">by ${escapeHTML(schedule[slotId].nickname)}</div>
+            `;
+          } else {
+            slot.innerHTML = `<div class="empty-label">点击添加</div>`;
+          }
+
+          slot.addEventListener("click", () => editSlot(dayIndex, hour));
+        }
+
+        row.appendChild(slot);
+      });
+
+      calendarBody.appendChild(row);
+    }
+  }
+
+  async function editSlot(dayIndex, hour) {
+    if (isWorkTime(dayIndex, hour)) {
+      alert("这个时间段是上班时间，不能添加游戏日程。");
+      return;
+    }
+
+    const editPassword = getEditPassword();
+
+    if (!editPassword) {
+      alert("请先输入编辑密码。");
+      editPasswordInput.focus();
+      return;
+    }
+
+    const slotId = getSlotId(dayIndex, hour);
+    const currentGame = schedule[slotId]?.game || "";
+    const day = days[dayIndex];
+
+    isEditing = true;
+
+    const game = prompt(
+      `${day} ${formatHour(hour)} - ${formatHour(hour + 1)}\n请输入要打的游戏：\n\n留空并确认可以清除该时间段。`,
+      currentGame
+    );
+
+    isEditing = false;
+
+    if (game === null) return;
+
+    const trimmedGame = game.trim();
+
+    let nickname = getNickname();
+
+    if (trimmedGame !== "" && !nickname) {
+      alert("添加或修改日程时，请先输入昵称。");
+      nicknameInput.focus();
+      return;
+    }
+
+    try {
+      const response = await fetch("api.php?action=save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          dayIndex,
+          hour,
+          game: trimmedGame,
+          nickname,
+          editPassword
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        alert(result.message || "保存失败");
+        return;
+      }
+
+      await loadSchedule(false);
+    } catch (error) {
+      console.error(error);
+      alert("保存失败，请检查网络或服务器接口。");
+    }
+  }
+
+  async function clearAllEditableSchedules() {
+    const editPassword = getEditPassword();
+
+    if (!editPassword) {
+      alert("请先输入编辑密码。");
+      editPasswordInput.focus();
+      return;
+    }
+
+    const confirmed = confirm("确定要清空全部可编辑日程吗？这个操作会影响所有打开网页的人。");
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch("api.php?action=clear", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          editPassword
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        alert(result.message || "清空失败");
+        return;
+      }
+
+      await loadSchedule(false);
+      alert("已清空全部可编辑日程。");
+    } catch (error) {
+      console.error(error);
+      alert("清空失败，请检查服务器接口。");
+    }
+  }
+
+  function exportSchedule() {
+    let text = "🎮 多人共享游戏日程表\n\n";
+
+    const keys = Object.keys(schedule);
+
+    if (keys.length === 0) {
+      alert("目前还没有安排任何游戏。");
+      return;
+    }
+
+    days.forEach((day, dayIndex) => {
+      text += `${day}\n`;
+
+      let hasAny = false;
+
+      for (let hour = startHour; hour < endHour; hour++) {
+        const slotId = getSlotId(dayIndex, hour);
+
+        if (schedule[slotId]) {
+          hasAny = true;
+          text += `  ${formatHour(hour)} - ${formatHour(hour + 1)}：${schedule[slotId].game}，by ${schedule[slotId].nickname}\n`;
+        }
+      }
+
+      if (!hasAny) {
+        text += "  暂无安排\n";
+      }
+
+      text += "\n";
+    });
+
+    const blob = new Blob([text], {
+      type: "text/plain;charset=utf-8"
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "多人共享游戏日程表.txt";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function getNickname() {
+    return nicknameInput.value.trim();
+  }
+
+  function getEditPassword() {
+    return editPasswordInput.value.trim();
+  }
+
+  function isWorkTime(dayIndex, hour) {
+    const isWeekday = dayIndex >= 0 && dayIndex <= 4;
+
+    const isMorningWork = hour >= 9 && hour < 12;
+    const isAfternoonWork = hour >= 14 && hour < 18;
+
+    return isWeekday && (isMorningWork || isAfternoonWork);
+  }
+
+  function getSlotId(dayIndex, hour) {
+    return `day${dayIndex}_hour${hour}`;
+  }
+
+  function formatHour(hour) {
+    return `${String(hour).padStart(2, "0")}:00`;
+  }
+
+  function escapeHTML(str) {
+    return String(str).replace(/[&<>"']/g, function(char) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char];
+    });
+  }
+</script>
+
+</body>
+</html>
