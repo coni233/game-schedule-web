@@ -2,11 +2,11 @@
 
 一个用于规划大家一起开游戏时间的多人共享游戏日程表。
 
-当大家想一起打游戏时，经常会遇到“谁什么时候有空”“几点开始”“缺几个人”等问题。
+当大家想一起打游戏时，经常会遇到“谁什么时候有空”“几点开始”“缺几个人”“谁也要来”等问题。
 
-因此做了一个网页版的共享日程表，让大家可以在同一个页面上添加自己想玩的游戏和时间段，从而更方便地协调开游戏的时间。
+该网页版的共享日程表，可以让大家可以在同一个页面上添加自己想玩的游戏和时间段，也可以对已有日程标记“我也要来”，更方便地协调大家一起开游戏的时间。
 
-## 我自己的在线地址
+## 我的在线地址
 
 [https://www.coni.top/game-schedule/](https://www.coni.top/game-schedule/)
 
@@ -23,10 +23,21 @@
 - 支持多人共享查看同一个日程表
 - 使用 MySQL 保存日程数据
 - 支持用户昵称，方便知道是谁添加的日程
+- 支持显示日程主持人
+- 支持“我也要来”功能
+  - 点击已有日程后，可以勾选“我也要来”
+  - 勾选后，当前昵称会显示在该日程的参与者列表中
+  - 取消勾选后，可以退出该日程
+- 支持在页面中显示参与者列表
+- 支持导出当前日程为文本文件
+  - 导出内容包含游戏名称
+  - 导出内容包含主持人
+  - 导出内容包含参与者
 - 支持普通编辑密码
   - 可新增日程
   - 可修改日程
   - 可删除单个时间段日程
+  - 可加入或退出已有日程
 - 支持管理员密码
   - 可执行普通编辑密码的全部操作
   - 可清空全部可编辑日程
@@ -36,7 +47,6 @@
   - 14:00 - 18:00 不可添加
 - 支持手动刷新日程
 - 支持自动同步日程
-- 支持导出当前日程为文本文件
 
 ## 项目结构
 
@@ -94,13 +104,17 @@ https://你的域名/game-schedule/src/index.html
 
 ## MySQL 配置
 
-### 1. 创建数据库
-进入MySQL
+### 1. 进入 MySQL
+
 ```bash
 mysql -u root -p
 ```
 
-进入 MySQL 后执行：创建一个专门给游戏日程用的数据库
+输入 MySQL 密码后进入 MySQL。
+
+### 2. 创建数据库
+
+进入 MySQL 后执行，创建一个专门给游戏日程使用的数据库：
 
 ```sql
 CREATE DATABASE game_schedule DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -112,7 +126,9 @@ CREATE DATABASE game_schedule DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unic
 USE game_schedule;
 ```
 
-### 2. 创建数据表
+### 3. 创建日程表
+
+`game_schedule_slots` 用于保存每个时间段的游戏日程信息。
 
 ```sql
 CREATE TABLE game_schedule_slots (
@@ -127,7 +143,31 @@ CREATE TABLE game_schedule_slots (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-检查表是否创建成功：
+### 4. 创建参与者表
+
+`game_schedule_participants` 用于保存某个时间段有哪些人点击了“我也要来”。
+
+```sql
+CREATE TABLE game_schedule_participants (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  slot_id VARCHAR(50) NOT NULL,
+  nickname VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_slot_nickname (slot_id, nickname),
+  CONSTRAINT fk_participants_slot
+    FOREIGN KEY (slot_id)
+    REFERENCES game_schedule_slots(slot_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+这里使用了外键关联：
+
+- 当某个日程被删除时，对应的参与者记录也会自动删除
+- 同一个昵称不能重复加入同一个日程
+
+### 5. 检查数据表是否创建成功
 
 ```sql
 SHOW TABLES;
@@ -136,12 +176,13 @@ SHOW TABLES;
 如果看到：
 
 ```text
+game_schedule_participants
 game_schedule_slots
 ```
 
 说明创建成功。
 
-### 3. 创建网站专用 MySQL 用户
+### 6. 创建网站专用 MySQL 用户
 
 不建议让网站直接使用 MySQL 的 `root` 用户。
 
@@ -163,6 +204,41 @@ ALTER USER 'game_user'@'localhost' IDENTIFIED BY '新的强密码';
 GRANT SELECT, INSERT, UPDATE, DELETE ON game_schedule.* TO 'game_user'@'localhost';
 
 FLUSH PRIVILEGES;
+```
+
+## 从旧版本升级数据库
+
+如果你之前已经创建过 `game_schedule_slots` 表，只需要额外创建参与者表即可。
+
+进入 MySQL 后执行：
+
+```sql
+USE game_schedule;
+
+CREATE TABLE game_schedule_participants (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  slot_id VARCHAR(50) NOT NULL,
+  nickname VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_slot_nickname (slot_id, nickname),
+  CONSTRAINT fk_participants_slot
+    FOREIGN KEY (slot_id)
+    REFERENCES game_schedule_slots(slot_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+如果创建外键时报错，请先确认 `game_schedule_slots` 表中的 `slot_id` 字段已经存在唯一索引：
+
+```sql
+SHOW CREATE TABLE game_schedule_slots;
+```
+
+正常情况下，`slot_id` 应该是：
+
+```sql
+slot_id VARCHAR(50) NOT NULL UNIQUE
 ```
 
 ## 项目配置
@@ -201,13 +277,13 @@ return [
 建议：
 
 - 普通编辑密码和管理员密码不要设置成一样
-- 不要把真实的 `config.php` 上传到 GitHub
+- 不要把真实的 `config.php` 上传到任何公开的地方
 - `.gitignore` 中应包含：
 
 ```gitignore
 src/config.php
-config.php
 ```
+注意：服务器上的 `src/config.php` 不应由 Git 管理，需要保留在服务器本地。
 
 ## 权限说明
 
@@ -218,6 +294,8 @@ config.php
 | 新增日程 | 可以 | 可以 |
 | 修改日程 | 可以 | 可以 |
 | 删除单个日程 | 可以 | 可以 |
+| 加入已有日程 | 可以 | 可以 |
+| 退出已有日程 | 可以 | 可以 |
 | 清空全部可编辑日程 | 不可以 | 可以 |
 
 ## 工作时间规则
@@ -236,45 +314,97 @@ config.php
 
 ## 使用方式
 
+### 添加游戏日程
+
 1. 打开网页。
 2. 输入自己的昵称。
 3. 输入普通编辑密码或管理员密码。
-4. 点击可以添加日程的时间格。
+4. 点击可以添加日程的空白时间格。
 5. 输入想玩的游戏名称。
 6. 其他人刷新或等待自动同步后，即可看到更新后的日程。
 
-如果想删除某个时间段的日程，可以点击该时间格，然后将游戏名称清空并确认。
+### 修改或删除游戏日程
 
-## 更新部署
+点击已有日程后，可以选择编辑或删除该日程。
 
-本地修改代码后：
+如果想删除某个时间段的日程，可以点击该时间格，选择编辑日程，然后将游戏名称清空并确认。
 
-```bash
-git add .
-git commit -m "feat: update schedule feature"
-git push
+删除日程后，该日程下的参与者记录也会一并删除。
+
+### 加入已有日程
+
+1. 输入自己的昵称。
+2. 输入普通编辑密码或管理员密码。
+3. 点击一个已经存在的游戏日程。
+4. 勾选“我也要来”。
+5. 点击保存参与状态。
+
+保存后，当前昵称会显示在该日程下方的参与者列表中。
+
+例如：
+
+```text
+APEX
+主持：cn
+参与：吉诺、robotmaid
 ```
 
-服务器更新代码：
+### 退出已有日程
 
-```bash
-cd /path/to/game-schedule-web
-git pull
+1. 点击自己已经加入的游戏日程。
+2. 取消勾选“我也要来”。
+3. 点击保存参与状态。
+
+保存后，当前昵称会从参与者列表中移除。
+
+### 导出日程
+
+点击“导出日程”按钮，可以导出当前日程表为文本文件。
+
+导出内容会包含：
+
+- 时间段
+- 游戏名称
+- 主持人
+- 参与者
+
+示例：
+
+```text
+周六
+  20:00 - 21:00：APEX，主持：cn，参与：吉诺、robotmaid
 ```
-
-注意：服务器上的 `src/config.php` 不应由 Git 管理，需要保留在服务器本地。
 
 ## 未来计划
 
 后续可能会增加以下功能：
 
-### “我也要来”功能
+### 功能路线图
+
+- [x] “我也要来”功能
+- [ ] “我这时有空”功能
+- [ ] 募集人数功能
+- [ ] 参与者确认机制
+- [ ] QQ Bot 联动
+- [ ] 邮件通知
+- [ ] 更细粒度的权限管理
+- [ ] 操作记录
+
+### 已完成：“我也要来”功能
 
 用户可以对某个游戏日程表示自己也想参加。
 
 例如某个时间段有人创建了 `APEX` 日程，其他人可以点击“我也要来”，将自己加入参与列表。
 
-### “我这时有空”功能
+当前该功能已经支持：
+
+- 点击已有日程后勾选“我也要来”
+- 将当前昵称添加到参与者列表
+- 取消勾选后退出该日程
+- 在页面中显示参与者
+- 导出日程时显示参与者
+
+### 待办：“我这时有空”功能
 
 用户可以标记自己在某个时间段有空，方便其他人发起游戏安排。
 
@@ -286,7 +416,7 @@ git pull
 
 这样大家可以更方便地找到共同空闲时间。
 
-### 募集人数功能
+### 待办：募集人数功能
 
 创建日程时可以设置需要募集的人数或角色。
 
@@ -301,19 +431,21 @@ git pull
 
 这样日程表不只是记录“玩什么”，也可以记录“还差谁”。
 
-### 报名列表
+### 待办：参与者确认机制
 
-每个日程可以显示已经报名的人。
+用户加入日程后，可以进一步确认是否一定参加。
 
 例如：
 
-```text
-APEX
-已报名：cn、raid、robotmaid
-还差：1 人
-```
+| 用户 | 状态 |
+| --- | --- |
+| cn | 已确认 |
+| raid | 已确认 |
+| robotmaid | 待确认 |
 
-### QQ Bot 联动
+这样可以区分“感兴趣”和“确认参加”。
+
+### 待办：QQ Bot 联动
 
 未来可以和 QQ Bot 联动。
 
@@ -331,27 +463,13 @@ APEX
 APEX 人齐了，今晚 20:00 开。
 ```
 
-### 邮件通知
+### 待办：邮件通知
 
 除了 QQ Bot，也可以增加邮件通知功能。
 
 当有人发起游戏邀请、有人报名、人数满足开车条件时，可以自动发送邮件通知相关成员。
 
-### 确认机制
-
-用户收到邀请后，可以进行确认。
-
-确认后，日程表自动更新参与状态。
-
-例如：
-
-| 用户 | 状态 |
-| --- | --- |
-| cn | 已确认 |
-| raid | 已确认 |
-| robotmaid | 待确认 |
-
-### 更细粒度的权限管理
+### 待办：更细粒度的权限管理
 
 后续可以增加更完整的用户权限系统。
 
@@ -362,17 +480,17 @@ APEX 人齐了，今晚 20:00 开。
 - 管理员可以清空全部日程
 - 可以查看操作记录
 
-### 操作记录
+### 待办：操作记录
 
-记录谁在什么时候新增、修改、删除了日程。
+记录谁在什么时候新增、修改、删除、加入、退出了日程。
 
 例如：
 
 ```text
 2026-01-01 20:00 cn 添加了 周五 21:00 - 22:00 的 APEX 日程
 2026-01-01 20:05 raid 修改了 周六 20:00 - 21:00 的游戏名称
+2026-01-01 20:10 robotmaid 加入了 周六 20:00 - 21:00 的 APEX 日程
+2026-01-01 20:20 吉诺 退出了 周六 20:00 - 21:00 的 APEX 日程
 ```
 
-这样可以方便排查误操作，也更适合多人协作。
-
-
+方便排查误操作。
