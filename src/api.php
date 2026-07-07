@@ -121,9 +121,36 @@ if ($action === "list") {
         ORDER BY day_index ASC, hour ASC
     ");
 
+    $items = $stmt->fetchAll();
+
+    $participantStmt = $pdo->query("
+        SELECT slot_id, nickname
+        FROM game_schedule_participants
+        ORDER BY created_at ASC, id ASC
+    ");
+
+    $participantsMap = [];
+
+    foreach ($participantStmt->fetchAll() as $participant) {
+        $slotId = $participant["slot_id"];
+
+        if (!isset($participantsMap[$slotId])) {
+            $participantsMap[$slotId] = [];
+        }
+
+        $participantsMap[$slotId][] = $participant["nickname"];
+    }
+
+    foreach ($items as &$item) {
+        $slotId = $item["slot_id"];
+        $item["participants"] = $participantsMap[$slotId] ?? [];
+    }
+
+    unset($item);
+
     jsonResponse([
         "success" => true,
-        "items" => $stmt->fetchAll()
+        "items" => $items
     ]);
 }
 
@@ -245,6 +272,92 @@ if ($action === "clear") {
     jsonResponse([
         "success" => true,
         "message" => "已清空全部可编辑日程"
+    ]);
+}
+
+if ($action === "join") {
+    if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+        jsonResponse([
+            "success" => false,
+            "message" => "请求方法错误"
+        ], 405);
+    }
+
+    $data = getJsonInput();
+
+    // 普通编辑密码或管理员密码都可以参与
+    requireEditPassword($data);
+
+    $dayIndex = getIntField($data, "dayIndex", 0, 6, "星期参数错误");
+    $hour = getIntField($data, "hour", 0, 23, "时间参数错误");
+
+    if (isWorkTime($dayIndex, $hour)) {
+        jsonResponse([
+            "success" => false,
+            "message" => "上班时间不能操作"
+        ], 403);
+    }
+
+    $nickname = trim((string)($data["nickname"] ?? ""));
+
+    if ($nickname === "") {
+        jsonResponse([
+            "success" => false,
+            "message" => "请输入昵称"
+        ], 400);
+    }
+
+    if (textLength($nickname) > 20) {
+        jsonResponse([
+            "success" => false,
+            "message" => "昵称不能超过 20 个字符"
+        ], 400);
+    }
+
+    $joining = filter_var($data["joining"] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $slotId = "day{$dayIndex}_hour{$hour}";
+
+    $checkStmt = $pdo->prepare("
+        SELECT COUNT(*) AS count
+        FROM game_schedule_slots
+        WHERE slot_id = ?
+    ");
+    $checkStmt->execute([$slotId]);
+    $row = $checkStmt->fetch();
+
+    if (!$row || intval($row["count"]) === 0) {
+        jsonResponse([
+            "success" => false,
+            "message" => "该时间段还没有日程，不能加入"
+        ], 404);
+    }
+
+    if ($joining) {
+        $stmt = $pdo->prepare("
+            INSERT IGNORE INTO game_schedule_participants
+                (slot_id, nickname)
+            VALUES
+                (?, ?)
+        ");
+
+        $stmt->execute([$slotId, $nickname]);
+
+        jsonResponse([
+            "success" => true,
+            "message" => "已加入该日程"
+        ]);
+    }
+
+    $stmt = $pdo->prepare("
+        DELETE FROM game_schedule_participants
+        WHERE slot_id = ? AND nickname = ?
+    ");
+
+    $stmt->execute([$slotId, $nickname]);
+
+    jsonResponse([
+        "success" => true,
+        "message" => "已取消加入该日程"
     ]);
 }
 

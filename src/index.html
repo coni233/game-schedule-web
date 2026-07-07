@@ -99,6 +99,14 @@
       background: #dc2626;
     }
 
+    .secondary-btn {
+      background: #64748b;
+    }
+
+    .secondary-btn:hover {
+      background: #475569;
+    }
+
     .calendar-wrapper {
       width: 95%;
       margin: 0 auto 40px;
@@ -136,7 +144,7 @@
 
     .slot {
       width: 140px;
-      height: 78px;
+      height: 92px;
       cursor: pointer;
       position: relative;
       transition: 0.2s;
@@ -167,7 +175,7 @@
 
     .game-title {
       font-size: 14px;
-      margin-top: 6px;
+      margin-top: 4px;
       word-break: break-word;
       line-height: 1.4;
     }
@@ -175,8 +183,17 @@
     .nickname-label {
       font-size: 12px;
       color: #64748b;
-      margin-top: 6px;
+      margin-top: 5px;
       font-weight: normal;
+    }
+
+    .participants-label {
+      font-size: 12px;
+      color: #475569;
+      margin-top: 5px;
+      font-weight: normal;
+      line-height: 1.4;
+      word-break: break-word;
     }
 
     .work-label {
@@ -189,6 +206,65 @@
       font-size: 12px;
       color: #bbb;
       margin-top: 14px;
+    }
+
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 16px;
+    }
+
+    .modal-mask.hidden {
+      display: none;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 430px;
+      background: white;
+      border-radius: 14px;
+      padding: 22px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    }
+
+    .modal-card h3 {
+      margin: 0 0 12px;
+      color: #1e293b;
+    }
+
+    .modal-info {
+      color: #475569;
+      line-height: 1.7;
+      margin-bottom: 14px;
+      word-break: break-word;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 16px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .checkbox-row input {
+      width: 16px;
+      height: 16px;
+      flex: none;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      margin-top: 18px;
     }
 
     @media (max-width: 700px) {
@@ -204,6 +280,14 @@
       input {
         flex: 1;
       }
+
+      .modal-actions {
+        justify-content: stretch;
+      }
+
+      .modal-actions button {
+        flex: 1;
+      }
     }
   </style>
 </head>
@@ -215,34 +299,35 @@
 
 <p class="hint">
   点击空闲时间段，填写这个时间要打的游戏。<br>
-  周一到周五 09:00-12:00、14:00-18:00 是上班时间，不能添加日程。
-
+  周一到周五 09:00-12:00、14:00-18:00 是上班时间，不能添加日程。<br>
+  点击已有日程，可以勾选“我也要来”加入参与列表。
 </p>
 
 <div class="user-panel">
   <div class="form-group">
     <label for="nicknameInput">昵称</label>
-    <input 
-      id="nicknameInput" 
-      type="text" 
-      maxlength="20" 
+    <input
+      id="nicknameInput"
+      type="text"
+      maxlength="20"
       placeholder="例如：吉诺"
     />
   </div>
 
   <div class="form-group">
     <label for="editPasswordInput">编辑密码</label>
-    <input 
-      id="editPasswordInput" 
-      type="password" 
+    <input
+      id="editPasswordInput"
+      type="password"
       placeholder="请输入编辑密码"
     />
   </div>
+
   <div class="form-group">
     <label for="adminPasswordInput">管理员密码</label>
-    <input 
-      id="adminPasswordInput" 
-      type="password" 
+    <input
+      id="adminPasswordInput"
+      type="password"
       placeholder="可执行全部操作"
     />
   </div>
@@ -274,6 +359,25 @@
   </table>
 </div>
 
+<div class="modal-mask hidden" id="joinModal">
+  <div class="modal-card">
+    <h3 id="joinModalTitle">参与日程</h3>
+
+    <div class="modal-info" id="joinModalInfo"></div>
+
+    <label class="checkbox-row">
+      <input type="checkbox" id="joinCheckbox" />
+      <span>我也要来</span>
+    </label>
+
+    <div class="modal-actions">
+      <button id="saveJoinBtn">保存参与状态</button>
+      <button class="secondary-btn" id="editScheduleBtn">编辑/删除日程</button>
+      <button class="secondary-btn" id="closeJoinModalBtn">关闭</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
@@ -289,8 +393,17 @@
   const editPasswordInput = document.getElementById("editPasswordInput");
   const adminPasswordInput = document.getElementById("adminPasswordInput");
 
+  const joinModal = document.getElementById("joinModal");
+  const joinModalTitle = document.getElementById("joinModalTitle");
+  const joinModalInfo = document.getElementById("joinModalInfo");
+  const joinCheckbox = document.getElementById("joinCheckbox");
+  const saveJoinBtn = document.getElementById("saveJoinBtn");
+  const editScheduleBtn = document.getElementById("editScheduleBtn");
+  const closeJoinModalBtn = document.getElementById("closeJoinModalBtn");
+
   let schedule = {};
   let isEditing = false;
+  let currentJoinSlot = null;
 
   nicknameInput.value = localStorage.getItem("gameScheduleNickname") || "";
 
@@ -311,6 +424,16 @@
   refreshBtn.addEventListener("click", () => loadSchedule(true));
   exportBtn.addEventListener("click", exportSchedule);
   clearBtn.addEventListener("click", clearAllEditableSchedules);
+
+  saveJoinBtn.addEventListener("click", saveJoinStatus);
+  editScheduleBtn.addEventListener("click", editCurrentSchedule);
+  closeJoinModalBtn.addEventListener("click", closeJoinModal);
+
+  joinModal.addEventListener("click", (event) => {
+    if (event.target === joinModal) {
+      closeJoinModal();
+    }
+  });
 
   async function loadSchedule(showStatus = true) {
     try {
@@ -334,6 +457,7 @@
         schedule[item.slot_id] = {
           game: item.game,
           nickname: item.nickname || "匿名玩家",
+          participants: Array.isArray(item.participants) ? item.participants : [],
           day: item.day_name,
           dayIndex: Number(item.day_index),
           hour: Number(item.hour),
@@ -371,6 +495,11 @@
           slot.innerHTML = `<div class="work-label">上班</div>`;
         } else {
           if (schedule[slotId]) {
+            const participants = schedule[slotId].participants || [];
+            const participantsHtml = participants.length > 0
+              ? `<div class="participants-label">参加：${participants.map(escapeHTML).join("、")}</div>`
+              : "";
+
             slot.classList.add("has-game");
             slot.title = schedule[slotId].updatedAt
               ? `最后更新：${schedule[slotId].updatedAt}`
@@ -378,13 +507,14 @@
 
             slot.innerHTML = `
               <div class="game-title">${escapeHTML(schedule[slotId].game)}</div>
-              <div class="nickname-label">by ${escapeHTML(schedule[slotId].nickname)}</div>
+              <div class="nickname-label">主持：${escapeHTML(schedule[slotId].nickname)}</div>
+              ${participantsHtml}
             `;
           } else {
             slot.innerHTML = `<div class="empty-label">点击添加</div>`;
           }
 
-          slot.addEventListener("click", () => editSlot(dayIndex, hour));
+          slot.addEventListener("click", () => handleSlotClick(dayIndex, hour));
         }
 
         row.appendChild(slot);
@@ -392,6 +522,17 @@
 
       calendarBody.appendChild(row);
     }
+  }
+
+  function handleSlotClick(dayIndex, hour) {
+    const slotId = getSlotId(dayIndex, hour);
+
+    if (schedule[slotId]) {
+      openJoinModal(dayIndex, hour);
+      return;
+    }
+
+    editSlot(dayIndex, hour);
   }
 
   async function editSlot(dayIndex, hour) {
@@ -462,6 +603,105 @@
     }
   }
 
+  function openJoinModal(dayIndex, hour) {
+    const slotId = getSlotId(dayIndex, hour);
+    const item = schedule[slotId];
+
+    if (!item) return;
+
+    const nickname = getNickname();
+    const participants = item.participants || [];
+
+    currentJoinSlot = {
+      dayIndex,
+      hour,
+      slotId
+    };
+
+    isEditing = true;
+
+    joinModalTitle.textContent = `${days[dayIndex]} ${formatHour(hour)} - ${formatHour(hour + 1)}`;
+
+    const participantsText = participants.length > 0
+      ? participants.join("、")
+      : "暂无其他参与者";
+
+    joinModalInfo.innerHTML = `
+      <strong>${escapeHTML(item.game)}</strong><br>
+      创建者：${escapeHTML(item.nickname)}<br>
+      当前参加：${escapeHTML(participantsText)}
+    `;
+
+    joinCheckbox.checked = nickname !== "" && participants.includes(nickname);
+
+    joinModal.classList.remove("hidden");
+  }
+
+  function closeJoinModal() {
+    joinModal.classList.add("hidden");
+    currentJoinSlot = null;
+    isEditing = false;
+  }
+
+  async function saveJoinStatus() {
+    if (!currentJoinSlot) return;
+
+    const nickname = getNickname();
+
+    if (!nickname) {
+      alert("请先输入昵称。");
+      nicknameInput.focus();
+      return;
+    }
+
+    const operationPassword = getOperationPassword();
+
+    if (!operationPassword) {
+      alert("请先输入编辑密码或管理员密码。");
+      editPasswordInput.focus();
+      return;
+    }
+
+    try {
+      const response = await fetch("api.php?action=join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          dayIndex: currentJoinSlot.dayIndex,
+          hour: currentJoinSlot.hour,
+          nickname,
+          joining: joinCheckbox.checked,
+          editPassword: operationPassword
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        alert(result.message || "保存参与状态失败");
+        return;
+      }
+
+      await loadSchedule(false);
+      closeJoinModal();
+    } catch (error) {
+      console.error(error);
+      alert("保存参与状态失败，请检查网络或服务器接口。");
+    }
+  }
+
+  function editCurrentSchedule() {
+    if (!currentJoinSlot) return;
+
+    const dayIndex = currentJoinSlot.dayIndex;
+    const hour = currentJoinSlot.hour;
+
+    closeJoinModal();
+    editSlot(dayIndex, hour);
+  }
+
   async function clearAllEditableSchedules() {
     const adminPassword = getAdminPassword();
 
@@ -521,7 +761,13 @@
 
         if (schedule[slotId]) {
           hasAny = true;
-          text += `  ${formatHour(hour)} - ${formatHour(hour + 1)}：${schedule[slotId].game}，by ${schedule[slotId].nickname}\n`;
+
+          const participants = schedule[slotId].participants || [];
+          const participantsText = participants.length > 0
+            ? `，参加：${participants.join("、")}`
+            : "";
+
+          text += `  ${formatHour(hour)} - ${formatHour(hour + 1)}：${schedule[slotId].game}，主持：${schedule[slotId].nickname}${participantsText}\n`;
         }
       }
 
