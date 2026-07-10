@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>管理不可编辑时间</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      background: #f5f6fa;
+      color: #1f2937;
+    }
+    header {
+      padding: 20px;
+      background: #24292f;
+      color: white;
+      text-align: center;
+    }
+    main {
+      width: min(1100px, 94%);
+      margin: 24px auto 50px;
+    }
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    }
+    h2 { margin-top: 0; }
+    .note {
+      color: #64748b;
+      line-height: 1.7;
+    }
+    .auth-row,
+    .form-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: end;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 150px;
+      flex: 1;
+    }
+    label { font-size: 14px; color: #475569; }
+    input, select {
+      padding: 9px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 14px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #1d4ed8; }
+    .danger { background: #ef4444; }
+    .danger:hover { background: #dc2626; }
+    .secondary { background: #64748b; }
+    .secondary:hover { background: #475569; }
+    .status {
+      margin-top: 12px;
+      color: #2563eb;
+      min-height: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th { background: #f8fafc; }
+    .tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+    .tag.block { background: #fee2e2; color: #991b1b; }
+    .tag.allow { background: #dcfce7; color: #166534; }
+    .hidden { display: none; }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 760px) {
+      table { display: block; overflow-x: auto; }
+      .field { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>⚙️ 管理不可编辑时间</h1>
+</header>
+
+<main>
+  <div class="toolbar">
+    <button class="secondary" id="backBtn">返回日程表</button>
+    <button id="refreshBtn">刷新规则</button>
+  </div>
+
+  <section class="card" id="authCard">
+    <h2>管理员验证</h2>
+    <p class="note">管理固定每周规则和指定日期调整需要管理员密码。密码仅保存在当前浏览器标签页的 sessionStorage 中。</p>
+    <div class="auth-row">
+      <div class="field">
+        <label for="adminPasswordInput">管理员密码</label>
+        <input id="adminPasswordInput" type="password" placeholder="请输入管理员密码" />
+      </div>
+      <button id="verifyBtn">验证并加载</button>
+    </div>
+    <div class="status" id="authStatus"></div>
+  </section>
+
+  <div id="managerContent" class="hidden">
+    <section class="card">
+      <h2>固定每周不可编辑规则</h2>
+      <p class="note">固定规则会在每周重复生效。例如周一 09:00-12:00，原因填写“上班”。</p>
+      <div class="form-grid">
+        <div class="field">
+          <label for="weeklyDay">星期</label>
+          <select id="weeklyDay">
+            <option value="0">周一</option><option value="1">周二</option><option value="2">周三</option>
+            <option value="3">周四</option><option value="4">周五</option><option value="5">周六</option><option value="6">周日</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="weeklyStart">开始时间</label>
+          <select id="weeklyStart"></select>
+        </div>
+        <div class="field">
+          <label for="weeklyEnd">结束时间</label>
+          <select id="weeklyEnd"></select>
+        </div>
+        <div class="field">
+          <label for="weeklyReason">原因</label>
+          <input id="weeklyReason" maxlength="50" placeholder="例如：上班" />
+        </div>
+        <button id="addWeeklyBtn">添加固定规则</button>
+      </div>
+
+      <table>
+        <thead><tr><th>星期</th><th>时间</th><th>原因</th><th>操作</th></tr></thead>
+        <tbody id="weeklyTableBody"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>指定日期调整</h2>
+      <p class="note">
+        指定日期调整优先于固定每周规则。<br>
+        “临时开放”适合请假或放假；“临时禁止”适合加班、开会或其他临时安排。后添加且时间重叠的规则优先。
+      </p>
+      <div class="form-grid">
+        <div class="field">
+          <label for="overrideDate">日期</label>
+          <input id="overrideDate" type="date" />
+        </div>
+        <div class="field">
+          <label for="overrideType">调整类型</label>
+          <select id="overrideType">
+            <option value="allow">临时开放</option>
+            <option value="block">临时禁止</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="overrideStart">开始时间</label>
+          <select id="overrideStart"></select>
+        </div>
+        <div class="field">
+          <label for="overrideEnd">结束时间</label>
+          <select id="overrideEnd"></select>
+        </div>
+        <div class="field">
+          <label for="overrideReason">原因</label>
+          <input id="overrideReason" maxlength="50" placeholder="例如：请假、放假、加班" />
+        </div>
+        <button id="addOverrideBtn">添加日期调整</button>
+      </div>
+
+      <table>
+        <thead><tr><th>日期</th><th>类型</th><th>时间</th><th>原因</th><th>操作</th></tr></thead>
+        <tbody id="overrideTableBody"></tbody>
+      </table>
+    </section>
+  </div>
+</main>
+
+<script>
+  const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+
+  const adminPasswordInput = document.getElementById("adminPasswordInput");
+  const verifyBtn = document.getElementById("verifyBtn");
+  const authStatus = document.getElementById("authStatus");
+  const managerContent = document.getElementById("managerContent");
+  const refreshBtn = document.getElementById("refreshBtn");
+  const backBtn = document.getElementById("backBtn");
+
+  const weeklyDay = document.getElementById("weeklyDay");
+  const weeklyStart = document.getElementById("weeklyStart");
+  const weeklyEnd = document.getElementById("weeklyEnd");
+  const weeklyReason = document.getElementById("weeklyReason");
+  const addWeeklyBtn = document.getElementById("addWeeklyBtn");
+  const weeklyTableBody = document.getElementById("weeklyTableBody");
+
+  const overrideDate = document.getElementById("overrideDate");
+  const overrideType = document.getElementById("overrideType");
+  const overrideStart = document.getElementById("overrideStart");
+  const overrideEnd = document.getElementById("overrideEnd");
+  const overrideReason = document.getElementById("overrideReason");
+  const addOverrideBtn = document.getElementById("addOverrideBtn");
+  const overrideTableBody = document.getElementById("overrideTableBody");
+
+  fillHourSelect(weeklyStart, 0, 23, 9);
+  fillHourSelect(weeklyEnd, 1, 24, 12);
+  fillHourSelect(overrideStart, 0, 23, 9);
+  fillHourSelect(overrideEnd, 1, 24, 18);
+  overrideDate.value = formatDate(new Date());
+
+  adminPasswordInput.value = sessionStorage.getItem("gameScheduleAdminPassword") || "";
+
+  verifyBtn.addEventListener("click", loadRules);
+  refreshBtn.addEventListener("click", loadRules);
+  backBtn.addEventListener("click", () => window.location.href = "index.html");
+  addWeeklyBtn.addEventListener("click", addWeeklyBlock);
+  addOverrideBtn.addEventListener("click", addDateOverride);
+
+  if (adminPasswordInput.value) loadRules();
+
+  async function loadRules() {
+    const adminPassword = getAdminPassword();
+    if (!adminPassword) {
+      authStatus.textContent = "请输入管理员密码。";
+      adminPasswordInput.focus();
+      return;
+    }
+
+    authStatus.textContent = "正在验证并加载规则...";
+
+    try {
+      const result = await postApi("listUnavailableAdmin", { adminPassword });
+      sessionStorage.setItem("gameScheduleAdminPassword", adminPassword);
+      renderWeeklyRules(result.weeklyBlocks || []);
+      renderDateOverrides(result.dateOverrides || []);
+      managerContent.classList.remove("hidden");
+      authStatus.textContent = "管理员验证成功，规则已加载。";
+    } catch (error) {
+      managerContent.classList.add("hidden");
+      authStatus.textContent = error.message;
+    }
+  }
+
+  async function addWeeklyBlock() {
+    try {
+      await postApi("addWeeklyBlock", {
+        adminPassword: getAdminPassword(),
+        dayIndex: Number(weeklyDay.value),
+        startHour: Number(weeklyStart.value),
+        endHour: Number(weeklyEnd.value),
+        reason: weeklyReason.value.trim()
+      });
+      weeklyReason.value = "";
+      await loadRules();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  async function addDateOverride() {
+    try {
+      await postApi("addDateOverride", {
+        adminPassword: getAdminPassword(),
+        overrideDate: overrideDate.value,
+        overrideType: overrideType.value,
+        startHour: Number(overrideStart.value),
+        endHour: Number(overrideEnd.value),
+        reason: overrideReason.value.trim()
+      });
+      overrideReason.value = "";
+      await loadRules();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  async function deleteWeeklyBlock(id) {
+    if (!confirm("确定删除这条固定每周规则吗？")) return;
+    try {
+      await postApi("deleteWeeklyBlock", { adminPassword: getAdminPassword(), id });
+      await loadRules();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  async function deleteDateOverride(id) {
+    if (!confirm("确定删除这条指定日期调整吗？")) return;
+    try {
+      await postApi("deleteDateOverride", { adminPassword: getAdminPassword(), id });
+      await loadRules();
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+  function renderWeeklyRules(items) {
+    weeklyTableBody.innerHTML = "";
+    if (items.length === 0) {
+      weeklyTableBody.innerHTML = `<tr><td colspan="4">暂无固定每周规则</td></tr>`;
+      return;
+    }
+
+    items.forEach(item => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${escapeHTML(days[Number(item.day_index)] || "未知")}</td>
+        <td>${formatHour(item.start_hour)} - ${formatHour(item.end_hour)}</td>
+        <td>${escapeHTML(item.reason)}</td>
+        <td><button class="danger" data-id="${Number(item.id)}">删除</button></td>
+      `;
+      row.querySelector("button").addEventListener("click", () => deleteWeeklyBlock(Number(item.id)));
+      weeklyTableBody.appendChild(row);
+    });
+  }
+
+  function renderDateOverrides(items) {
+    overrideTableBody.innerHTML = "";
+    if (items.length === 0) {
+      overrideTableBody.innerHTML = `<tr><td colspan="5">暂无指定日期调整</td></tr>`;
+      return;
+    }
+
+    items.forEach(item => {
+      const isAllow = item.override_type === "allow";
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${escapeHTML(item.override_date)}</td>
+        <td><span class="tag ${isAllow ? "allow" : "block"}">${isAllow ? "临时开放" : "临时禁止"}</span></td>
+        <td>${formatHour(item.start_hour)} - ${formatHour(item.end_hour)}</td>
+        <td>${escapeHTML(item.reason)}</td>
+        <td><button class="danger" data-id="${Number(item.id)}">删除</button></td>
+      `;
+      row.querySelector("button").addEventListener("click", () => deleteDateOverride(Number(item.id)));
+      overrideTableBody.appendChild(row);
+    });
+  }
+
+  async function postApi(action, body) {
+    const response = await fetch(`api.php?action=${encodeURIComponent(action)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    let result;
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error("服务器返回了无效响应，请检查 PHP 日志。");
+    }
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "操作失败");
+    }
+
+    return result;
+  }
+
+  function getAdminPassword() {
+    return adminPasswordInput.value.trim();
+  }
+
+  function fillHourSelect(select, min, max, selectedValue) {
+    for (let hour = min; hour <= max; hour++) {
+      const option = document.createElement("option");
+      option.value = hour;
+      option.textContent = formatHour(hour);
+      if (hour === selectedValue) option.selected = true;
+      select.appendChild(option);
+    }
+  }
+
+  function formatHour(hour) {
+    return `${String(hour).padStart(2, "0")}:00`;
+  }
+
+  function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function escapeHTML(str) {
+    return String(str).replace(/[&<>"']/g, char => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    })[char]);
+  }
+</script>
+</body>
+</html>

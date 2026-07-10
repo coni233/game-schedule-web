@@ -2,43 +2,39 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>cn的游戏日程表</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, "Microsoft YaHei", sans-serif;
       background: #f5f6fa;
       color: #333;
     }
-
     header {
       padding: 20px;
       background: #24292f;
       color: white;
       text-align: center;
     }
-
     .hint {
       text-align: center;
       color: #666;
       margin: 14px auto;
       line-height: 1.7;
+      padding: 0 16px;
     }
-
     .status {
       text-align: center;
       margin: 12px auto 18px;
       color: #2563eb;
       font-size: 14px;
     }
-
-    .user-panel {
+    .user-panel,
+    .week-panel {
       width: 95%;
-      max-width: 900px;
+      max-width: 980px;
       margin: 18px auto;
       background: white;
       border-radius: 12px;
@@ -50,14 +46,22 @@
       align-items: center;
       flex-wrap: wrap;
     }
-
+    .week-panel {
+      max-width: 760px;
+      margin-top: 0;
+    }
+    .week-title {
+      min-width: 220px;
+      text-align: center;
+      font-weight: bold;
+      color: #1e293b;
+    }
     .form-group {
       display: flex;
       align-items: center;
       gap: 6px;
       font-size: 14px;
     }
-
     input {
       padding: 8px 10px;
       border: 1px solid #d1d5db;
@@ -65,17 +69,15 @@
       font-size: 14px;
       outline: none;
     }
-
     input:focus {
       border-color: #2563eb;
       box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
     }
-
     .toolbar {
       text-align: center;
       margin-bottom: 20px;
+      padding: 0 12px;
     }
-
     button {
       padding: 8px 14px;
       border: none;
@@ -84,130 +86,112 @@
       background: #2563eb;
       color: white;
       font-size: 14px;
-      margin: 0 4px;
+      margin: 4px;
     }
-
-    button:hover {
-      background: #1d4ed8;
-    }
-
-    .clear-btn {
-      background: #ef4444;
-    }
-
-    .clear-btn:hover {
-      background: #dc2626;
-    }
-
-    .secondary-btn {
-      background: #64748b;
-    }
-
-    .secondary-btn:hover {
-      background: #475569;
-    }
-
+    button:hover { background: #1d4ed8; }
+    .clear-btn { background: #ef4444; }
+    .clear-btn:hover { background: #dc2626; }
+    .manage-btn { background: #7c3aed; }
+    .manage-btn:hover { background: #6d28d9; }
+    .secondary-btn { background: #64748b; }
+    .secondary-btn:hover { background: #475569; }
     .calendar-wrapper {
       width: 95%;
       margin: 0 auto 40px;
       overflow-x: auto;
     }
-
     .calendar {
       width: 100%;
-      min-width: 900px;
+      min-width: 980px;
       border-collapse: collapse;
       background: white;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
       border-radius: 12px;
       overflow: hidden;
     }
-
     .calendar th,
     .calendar td {
       border: 1px solid #e5e7eb;
       text-align: center;
     }
-
     .calendar th {
       background: #f0f2f5;
-      height: 50px;
+      height: 58px;
       font-weight: bold;
+      padding: 5px;
     }
-
+    .date-label {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: #64748b;
+      font-weight: normal;
+    }
     .time-cell {
       width: 90px;
       background: #fafafa;
       font-size: 14px;
       color: #666;
     }
-
     .slot {
       width: 140px;
-      height: 92px;
+      height: 96px;
       cursor: pointer;
       position: relative;
       transition: 0.2s;
       vertical-align: top;
       padding: 6px;
     }
-
-    .slot:hover {
-      background: #eef6ff;
-    }
-
+    .slot:hover { background: #eef6ff; }
     .slot.has-game {
       background: #dff3ff;
       color: #0f4c81;
       font-weight: bold;
     }
-
     .slot.unavailable {
       background: #f3f4f6;
       color: #999;
       cursor: not-allowed;
       font-weight: normal;
     }
-
-    .slot.unavailable:hover {
-      background: #f3f4f6;
+    .slot.unavailable:hover { background: #f3f4f6; }
+    .slot.override-open {
+      box-shadow: inset 0 0 0 2px #86efac;
     }
-
     .game-title {
       font-size: 14px;
       margin-top: 4px;
       word-break: break-word;
       line-height: 1.4;
     }
-
-    .nickname-label {
-      font-size: 12px;
-      color: #64748b;
-      margin-top: 5px;
-      font-weight: normal;
-    }
-
+    .nickname-label,
     .participants-label {
       font-size: 12px;
-      color: #475569;
+      color: #64748b;
       margin-top: 5px;
       font-weight: normal;
       line-height: 1.4;
       word-break: break-word;
     }
-
+    .participants-label { color: #475569; }
     .work-label {
       font-size: 13px;
       margin-top: 12px;
-      color: #888;
+      color: #777;
+      line-height: 1.5;
+      word-break: break-word;
     }
-
+    .work-source {
+      display: block;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #aaa;
+    }
     .empty-label {
       font-size: 12px;
       color: #bbb;
       margin-top: 14px;
     }
-
     .modal-mask {
       position: fixed;
       inset: 0;
@@ -218,11 +202,7 @@
       z-index: 999;
       padding: 16px;
     }
-
-    .modal-mask.hidden {
-      display: none;
-    }
-
+    .modal-mask.hidden { display: none; }
     .modal-card {
       width: 100%;
       max-width: 430px;
@@ -231,19 +211,16 @@
       padding: 22px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
     }
-
     .modal-card h3 {
       margin: 0 0 12px;
       color: #1e293b;
     }
-
     .modal-info {
       color: #475569;
       line-height: 1.7;
       margin-bottom: 14px;
       word-break: break-word;
     }
-
     .checkbox-row {
       display: flex;
       align-items: center;
@@ -252,13 +229,11 @@
       cursor: pointer;
       user-select: none;
     }
-
     .checkbox-row input {
       width: 16px;
       height: 16px;
       flex: none;
     }
-
     .modal-actions {
       display: flex;
       gap: 8px;
@@ -266,71 +241,49 @@
       flex-wrap: wrap;
       margin-top: 18px;
     }
-
     @media (max-width: 700px) {
-      .user-panel {
+      .user-panel,
+      .week-panel {
         align-items: stretch;
         flex-direction: column;
       }
-
-      .form-group {
-        justify-content: space-between;
-      }
-
-      input {
-        flex: 1;
-      }
-
-      .modal-actions {
-        justify-content: stretch;
-      }
-
-      .modal-actions button {
-        flex: 1;
-      }
+      .form-group { justify-content: space-between; }
+      input { flex: 1; }
+      .modal-actions { justify-content: stretch; }
+      .modal-actions button { flex: 1; }
     }
   </style>
 </head>
 <body>
-
 <header>
   <h1>🎮 cn的游戏日程表</h1>
 </header>
 
 <p class="hint">
-  点击空闲时间段，填写这个时间要打的游戏。<br>
-  周一到周五 09:00-12:00、14:00-18:00 是上班时间，不能添加日程。<br>
-  点击已有日程，可以勾选“我也要来”加入参与列表。
+  点击空闲时间段，填写这个时间要打的游戏，点击已有日程可选择“我也要来”。日程按具体日期保存，可切换不同周。<br>
+  不可编辑时间由管理员维护，可设置固定每周规则，也可为请假、放假、加班添加指定日期调整。
 </p>
 
 <div class="user-panel">
   <div class="form-group">
     <label for="nicknameInput">昵称</label>
-    <input
-      id="nicknameInput"
-      type="text"
-      maxlength="20"
-      placeholder="例如：吉诺"
-    />
+    <input id="nicknameInput" type="text" maxlength="20" placeholder="你的昵称" />
   </div>
-
   <div class="form-group">
     <label for="editPasswordInput">编辑密码</label>
-    <input
-      id="editPasswordInput"
-      type="password"
-      placeholder="请输入编辑密码"
-    />
+    <input id="editPasswordInput" type="password" placeholder="请输入编辑密码" />
   </div>
-
   <div class="form-group">
     <label for="adminPasswordInput">管理员密码</label>
-    <input
-      id="adminPasswordInput"
-      type="password"
-      placeholder="可执行全部操作"
-    />
+    <input id="adminPasswordInput" type="password" placeholder="可执行全部操作" />
   </div>
+</div>
+
+<div class="week-panel">
+  <button class="secondary-btn" id="prevWeekBtn">上一周</button>
+  <button id="currentWeekBtn">本周</button>
+  <div class="week-title" id="weekTitle">正在计算日期...</div>
+  <button class="secondary-btn" id="nextWeekBtn">下一周</button>
 </div>
 
 <div class="status" id="status">正在加载共享日程...</div>
@@ -338,7 +291,8 @@
 <div class="toolbar">
   <button id="refreshBtn">刷新</button>
   <button id="exportBtn">导出日程</button>
-  <button class="clear-btn" id="clearBtn">清空全部可编辑日程</button>
+  <button class="manage-btn" id="manageUnavailableBtn">管理不可编辑时间</button>
+  <button class="clear-btn" id="clearBtn">清空本周可编辑日程</button>
 </div>
 
 <div class="calendar-wrapper">
@@ -346,13 +300,13 @@
     <thead>
       <tr>
         <th>时间</th>
-        <th>周一</th>
-        <th>周二</th>
-        <th>周三</th>
-        <th>周四</th>
-        <th>周五</th>
-        <th>周六</th>
-        <th>周日</th>
+        <th id="dayHeader0"></th>
+        <th id="dayHeader1"></th>
+        <th id="dayHeader2"></th>
+        <th id="dayHeader3"></th>
+        <th id="dayHeader4"></th>
+        <th id="dayHeader5"></th>
+        <th id="dayHeader6"></th>
       </tr>
     </thead>
     <tbody id="calendarBody"></tbody>
@@ -362,14 +316,11 @@
 <div class="modal-mask hidden" id="joinModal">
   <div class="modal-card">
     <h3 id="joinModalTitle">参与日程</h3>
-
     <div class="modal-info" id="joinModalInfo"></div>
-
     <label class="checkbox-row">
       <input type="checkbox" id="joinCheckbox" />
       <span>我也要来</span>
     </label>
-
     <div class="modal-actions">
       <button id="saveJoinBtn">保存参与状态</button>
       <button class="secondary-btn" id="editScheduleBtn">编辑/删除日程</button>
@@ -380,15 +331,19 @@
 
 <script>
   const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
-
   const startHour = 8;
   const endHour = 24;
 
   const calendarBody = document.getElementById("calendarBody");
   const statusEl = document.getElementById("status");
+  const weekTitle = document.getElementById("weekTitle");
   const refreshBtn = document.getElementById("refreshBtn");
   const exportBtn = document.getElementById("exportBtn");
   const clearBtn = document.getElementById("clearBtn");
+  const manageUnavailableBtn = document.getElementById("manageUnavailableBtn");
+  const prevWeekBtn = document.getElementById("prevWeekBtn");
+  const currentWeekBtn = document.getElementById("currentWeekBtn");
+  const nextWeekBtn = document.getElementById("nextWeekBtn");
   const nicknameInput = document.getElementById("nicknameInput");
   const editPasswordInput = document.getElementById("editPasswordInput");
   const adminPasswordInput = document.getElementById("adminPasswordInput");
@@ -402,62 +357,68 @@
   const closeJoinModalBtn = document.getElementById("closeJoinModalBtn");
 
   let schedule = {};
+  let weeklyBlocks = [];
+  let dateOverrides = [];
+  let currentWeekStart = getMonday(new Date());
   let isEditing = false;
   let currentJoinSlot = null;
 
   nicknameInput.value = localStorage.getItem("gameScheduleNickname") || "";
-
   nicknameInput.addEventListener("input", () => {
     localStorage.setItem("gameScheduleNickname", nicknameInput.value.trim());
   });
 
-  createCalendar();
-  loadSchedule();
-
-  // 每 3 秒自动刷新一次，别人添加后你也能看到
-  setInterval(() => {
-    if (!isEditing) {
-      loadSchedule(false);
-    }
-  }, 3000);
-
   refreshBtn.addEventListener("click", () => loadSchedule(true));
   exportBtn.addEventListener("click", exportSchedule);
-  clearBtn.addEventListener("click", clearAllEditableSchedules);
+  clearBtn.addEventListener("click", clearCurrentWeekSchedules);
+  manageUnavailableBtn.addEventListener("click", openUnavailableManager);
+  prevWeekBtn.addEventListener("click", () => changeWeek(-7));
+  currentWeekBtn.addEventListener("click", () => {
+    currentWeekStart = getMonday(new Date());
+    loadSchedule(true);
+  });
+  nextWeekBtn.addEventListener("click", () => changeWeek(7));
 
   saveJoinBtn.addEventListener("click", saveJoinStatus);
   editScheduleBtn.addEventListener("click", editCurrentSchedule);
   closeJoinModalBtn.addEventListener("click", closeJoinModal);
-
   joinModal.addEventListener("click", (event) => {
-    if (event.target === joinModal) {
-      closeJoinModal();
-    }
+    if (event.target === joinModal) closeJoinModal();
   });
+
+  loadSchedule(true);
+
+  setInterval(() => {
+    if (!isEditing) loadSchedule(false);
+  }, 3000);
+
+  function changeWeek(daysToAdd) {
+    currentWeekStart = addDays(currentWeekStart, daysToAdd);
+    loadSchedule(true);
+  }
 
   async function loadSchedule(showStatus = true) {
     try {
-      if (showStatus) {
-        statusEl.textContent = "正在加载共享日程...";
-      }
+      if (showStatus) statusEl.textContent = "正在加载共享日程...";
 
-      const response = await fetch("api.php?action=list", {
+      const weekStart = formatDate(currentWeekStart);
+      const response = await fetch(`api.php?action=list&weekStart=${encodeURIComponent(weekStart)}`, {
         cache: "no-store"
       });
-
       const result = await response.json();
 
-      if (!result.success) {
-        throw new Error(result.message || "加载失败");
-      }
+      if (!result.success) throw new Error(result.message || "加载失败");
 
       schedule = {};
+      weeklyBlocks = Array.isArray(result.weeklyBlocks) ? result.weeklyBlocks : [];
+      dateOverrides = Array.isArray(result.dateOverrides) ? result.dateOverrides : [];
 
       result.items.forEach(item => {
         schedule[item.slot_id] = {
           game: item.game,
           nickname: item.nickname || "匿名玩家",
           participants: Array.isArray(item.participants) ? item.participants : [],
+          date: item.schedule_date,
           day: item.day_name,
           dayIndex: Number(item.day_index),
           hour: Number(item.hour),
@@ -465,12 +426,24 @@
         };
       });
 
+      renderWeekHeaders();
       createCalendar();
-      statusEl.textContent = "共享日程已同步";
+      statusEl.textContent = `共享日程已同步 · ${formatDate(currentWeekStart)} 至 ${formatDate(addDays(currentWeekStart, 6))}`;
     } catch (error) {
       console.error(error);
-      statusEl.textContent = "加载失败，请检查 api.php 或数据库连接";
+      statusEl.textContent = `加载失败：${error.message}`;
     }
+  }
+
+  function renderWeekHeaders() {
+    const end = addDays(currentWeekStart, 6);
+    weekTitle.textContent = `${formatChineseDate(currentWeekStart)} - ${formatChineseDate(end)}`;
+
+    days.forEach((day, dayIndex) => {
+      const date = addDays(currentWeekStart, dayIndex);
+      document.getElementById(`dayHeader${dayIndex}`).innerHTML =
+        `${day}<span class="date-label">${formatMonthDay(date)}</span>`;
+    });
   }
 
   function createCalendar() {
@@ -478,22 +451,34 @@
 
     for (let hour = startHour; hour < endHour; hour++) {
       const row = document.createElement("tr");
-
       const timeCell = document.createElement("td");
       timeCell.className = "time-cell";
       timeCell.textContent = `${formatHour(hour)} - ${formatHour(hour + 1)}`;
       row.appendChild(timeCell);
 
       days.forEach((day, dayIndex) => {
+        const date = addDays(currentWeekStart, dayIndex);
+        const dateString = formatDate(date);
+        const slotId = getSlotId(dateString, hour);
         const slot = document.createElement("td");
-        const slotId = getSlotId(dayIndex, hour);
+        const unavailable = getUnavailableInfo(dateString, dayIndex, hour);
 
         slot.className = "slot";
 
-        if (isWorkTime(dayIndex, hour)) {
+        if (unavailable.blocked) {
           slot.classList.add("unavailable");
-          slot.innerHTML = `<div class="work-label">上班</div>`;
+          slot.innerHTML = `
+            <div class="work-label">
+              ${escapeHTML(unavailable.reason || "不可编辑")}
+              <span class="work-source">${unavailable.source === "date_block" ? "临时规则" : "固定规则"}</span>
+            </div>
+          `;
         } else {
+          if (unavailable.source === "date_allow") {
+            slot.classList.add("override-open");
+            slot.title = `临时开放：${unavailable.reason || "允许编辑"}`;
+          }
+
           if (schedule[slotId]) {
             const participants = schedule[slotId].participants || [];
             const participantsHtml = participants.length > 0
@@ -503,7 +488,7 @@
             slot.classList.add("has-game");
             slot.title = schedule[slotId].updatedAt
               ? `最后更新：${schedule[slotId].updatedAt}`
-              : "";
+              : slot.title;
 
             slot.innerHTML = `
               <div class="game-title">${escapeHTML(schedule[slotId].game)}</div>
@@ -514,7 +499,7 @@
             slot.innerHTML = `<div class="empty-label">点击添加</div>`;
           }
 
-          slot.addEventListener("click", () => handleSlotClick(dayIndex, hour));
+          slot.addEventListener("click", () => handleSlotClick(dateString, dayIndex, hour));
         }
 
         row.appendChild(slot);
@@ -524,49 +509,77 @@
     }
   }
 
-  function handleSlotClick(dayIndex, hour) {
-    const slotId = getSlotId(dayIndex, hour);
+  function getUnavailableInfo(dateString, dayIndex, hour) {
+    let blocked = false;
+    let reason = "";
+    let source = null;
+
+    weeklyBlocks
+      .filter(rule => Number(rule.day_index) === dayIndex && Number(rule.start_hour) <= hour && Number(rule.end_hour) > hour)
+      .forEach(rule => {
+        blocked = true;
+        reason = rule.reason;
+        source = "weekly";
+      });
+
+    dateOverrides
+      .filter(rule => rule.override_date === dateString && Number(rule.start_hour) <= hour && Number(rule.end_hour) > hour)
+      .forEach(rule => {
+        if (rule.override_type === "allow") {
+          blocked = false;
+          reason = rule.reason;
+          source = "date_allow";
+        } else {
+          blocked = true;
+          reason = rule.reason;
+          source = "date_block";
+        }
+      });
+
+    return { blocked, reason, source };
+  }
+
+  function handleSlotClick(dateString, dayIndex, hour) {
+    const slotId = getSlotId(dateString, hour);
 
     if (schedule[slotId]) {
-      openJoinModal(dayIndex, hour);
+      openJoinModal(dateString, dayIndex, hour);
       return;
     }
 
-    editSlot(dayIndex, hour);
+    editSlot(dateString, dayIndex, hour);
   }
 
-  async function editSlot(dayIndex, hour) {
-    if (isWorkTime(dayIndex, hour)) {
-      alert("这个时间段是上班时间，不能添加游戏日程。");
+  async function editSlot(dateString, dayIndex, hour) {
+    const unavailable = getUnavailableInfo(dateString, dayIndex, hour);
+
+    if (unavailable.blocked) {
+      alert(`该时间段不可编辑：${unavailable.reason || "不可编辑"}`);
       return;
     }
 
     const operationPassword = getOperationPassword();
-
     if (!operationPassword) {
       alert("请先输入编辑密码或管理员密码。");
       editPasswordInput.focus();
       return;
     }
 
-    const slotId = getSlotId(dayIndex, hour);
+    const slotId = getSlotId(dateString, hour);
     const currentGame = schedule[slotId]?.game || "";
-    const day = days[dayIndex];
+    const date = parseLocalDate(dateString);
 
     isEditing = true;
-
     const game = prompt(
-      `${day} ${formatHour(hour)} - ${formatHour(hour + 1)}\n请输入要打的游戏：\n\n留空并确认可以清除该时间段。`,
+      `${days[dayIndex]} ${formatMonthDay(date)} ${formatHour(hour)} - ${formatHour(hour + 1)}\n请输入要打的游戏：\n\n留空并确认可以清除该时间段。`,
       currentGame
     );
-
     isEditing = false;
 
     if (game === null) return;
 
     const trimmedGame = game.trim();
-
-    let nickname = getNickname();
+    const nickname = getNickname();
 
     if (trimmedGame !== "" && !nickname) {
       alert("添加或修改日程时，请先输入昵称。");
@@ -577,18 +590,15 @@
     try {
       const response = await fetch("api.php?action=save", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dayIndex,
+          date: dateString,
           hour,
           game: trimmedGame,
           nickname,
           editPassword: operationPassword
         })
       });
-
       const result = await response.json();
 
       if (!result.success) {
@@ -603,37 +613,27 @@
     }
   }
 
-  function openJoinModal(dayIndex, hour) {
-    const slotId = getSlotId(dayIndex, hour);
+  function openJoinModal(dateString, dayIndex, hour) {
+    const slotId = getSlotId(dateString, hour);
     const item = schedule[slotId];
-
     if (!item) return;
 
     const nickname = getNickname();
     const participants = item.participants || [];
+    const date = parseLocalDate(dateString);
 
-    currentJoinSlot = {
-      dayIndex,
-      hour,
-      slotId
-    };
-
+    currentJoinSlot = { dateString, dayIndex, hour, slotId };
     isEditing = true;
+    joinModalTitle.textContent = `${days[dayIndex]} ${formatMonthDay(date)} ${formatHour(hour)} - ${formatHour(hour + 1)}`;
 
-    joinModalTitle.textContent = `${days[dayIndex]} ${formatHour(hour)} - ${formatHour(hour + 1)}`;
-
-    const participantsText = participants.length > 0
-      ? participants.join("、")
-      : "暂无其他参与者";
-
+    const participantsText = participants.length > 0 ? participants.join("、") : "暂无其他参与者";
     joinModalInfo.innerHTML = `
       <strong>${escapeHTML(item.game)}</strong><br>
-      创建者：${escapeHTML(item.nickname)}<br>
+      主持：${escapeHTML(item.nickname)}<br>
       当前参加：${escapeHTML(participantsText)}
     `;
 
     joinCheckbox.checked = nickname !== "" && participants.includes(nickname);
-
     joinModal.classList.remove("hidden");
   }
 
@@ -647,7 +647,6 @@
     if (!currentJoinSlot) return;
 
     const nickname = getNickname();
-
     if (!nickname) {
       alert("请先输入昵称。");
       nicknameInput.focus();
@@ -655,7 +654,6 @@
     }
 
     const operationPassword = getOperationPassword();
-
     if (!operationPassword) {
       alert("请先输入编辑密码或管理员密码。");
       editPasswordInput.focus();
@@ -665,18 +663,15 @@
     try {
       const response = await fetch("api.php?action=join", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dayIndex: currentJoinSlot.dayIndex,
+          date: currentJoinSlot.dateString,
           hour: currentJoinSlot.hour,
           nickname,
           joining: joinCheckbox.checked,
           editPassword: operationPassword
         })
       });
-
       const result = await response.json();
 
       if (!result.success) {
@@ -694,38 +689,31 @@
 
   function editCurrentSchedule() {
     if (!currentJoinSlot) return;
-
-    const dayIndex = currentJoinSlot.dayIndex;
-    const hour = currentJoinSlot.hour;
-
+    const { dateString, dayIndex, hour } = currentJoinSlot;
     closeJoinModal();
-    editSlot(dayIndex, hour);
+    editSlot(dateString, dayIndex, hour);
   }
 
-  async function clearAllEditableSchedules() {
+  async function clearCurrentWeekSchedules() {
     const adminPassword = getAdminPassword();
-
     if (!adminPassword) {
-      alert("清空全部日程需要输入管理员密码。");
+      alert("清空本周日程需要输入管理员密码。");
       adminPasswordInput.focus();
       return;
     }
 
-    const confirmed = confirm("确定要清空全部可编辑日程吗？这个操作会影响所有打开网页的人。");
-
+    const confirmed = confirm("确定要清空当前显示周的全部可编辑日程吗？这个操作会影响所有打开网页的人。");
     if (!confirmed) return;
 
     try {
       const response = await fetch("api.php?action=clear", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          adminPassword
+          adminPassword,
+          weekStart: formatDate(currentWeekStart)
         })
       });
-
       const result = await response.json();
 
       if (!result.success) {
@@ -734,94 +722,125 @@
       }
 
       await loadSchedule(false);
-      alert("已清空全部可编辑日程。");
+      alert(`${result.message}，共删除 ${result.deletedCount || 0} 条日程。`);
     } catch (error) {
       console.error(error);
       alert("清空失败，请检查服务器接口。");
     }
   }
 
-  function exportSchedule() {
-    let text = "🎮 多人共享游戏日程表\n\n";
+  async function openUnavailableManager() {
+    const adminPassword = getAdminPassword();
+    if (!adminPassword) {
+      alert("请先输入管理员密码。");
+      adminPasswordInput.focus();
+      return;
+    }
 
+    try {
+      const response = await fetch("api.php?action=verifyAdmin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminPassword })
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        alert(result.message || "管理员验证失败");
+        return;
+      }
+
+      sessionStorage.setItem("gameScheduleAdminPassword", adminPassword);
+      window.location.href = "unavailable.html";
+    } catch (error) {
+      console.error(error);
+      alert("管理员验证失败，请检查网络或服务器接口。");
+    }
+  }
+
+  function exportSchedule() {
+    let text = `🎮 多人共享游戏日程表\n${formatDate(currentWeekStart)} 至 ${formatDate(addDays(currentWeekStart, 6))}\n\n`;
     const keys = Object.keys(schedule);
 
     if (keys.length === 0) {
-      alert("目前还没有安排任何游戏。");
+      alert("当前周还没有安排任何游戏。");
       return;
     }
 
     days.forEach((day, dayIndex) => {
-      text += `${day}\n`;
-
+      const date = addDays(currentWeekStart, dayIndex);
+      const dateString = formatDate(date);
+      text += `${day} ${formatMonthDay(date)}\n`;
       let hasAny = false;
 
       for (let hour = startHour; hour < endHour; hour++) {
-        const slotId = getSlotId(dayIndex, hour);
+        const slotId = getSlotId(dateString, hour);
+        if (!schedule[slotId]) continue;
 
-        if (schedule[slotId]) {
-          hasAny = true;
+        hasAny = true;
+        const item = schedule[slotId];
+        const participants = item.participants || [];
+        const participantsText = participants.length > 0
+          ? `，参加：${participants.join("、")}`
+          : "，参加：暂无";
 
-          const participants = schedule[slotId].participants || [];
-          const participantsText = participants.length > 0
-            ? `，参加：${participants.join("、")}`
-            : "";
-
-          text += `  ${formatHour(hour)} - ${formatHour(hour + 1)}：${schedule[slotId].game}，主持：${schedule[slotId].nickname}${participantsText}\n`;
-        }
+        text += `  ${formatHour(hour)} - ${formatHour(hour + 1)}：${item.game}，主持：${item.nickname}${participantsText}\n`;
       }
 
-      if (!hasAny) {
-        text += "  暂无安排\n";
-      }
-
+      if (!hasAny) text += "  暂无安排\n";
       text += "\n";
     });
 
-    const blob = new Blob([text], {
-      type: "text/plain;charset=utf-8"
-    });
-
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-
     const a = document.createElement("a");
     a.href = url;
-    a.download = "多人共享游戏日程表.txt";
+    a.download = `游戏日程表-${formatDate(currentWeekStart)}.txt`;
     a.click();
-
     URL.revokeObjectURL(url);
   }
 
-  function getNickname() {
-    return nicknameInput.value.trim();
+  function getNickname() { return nicknameInput.value.trim(); }
+  function getEditPassword() { return editPasswordInput.value.trim(); }
+  function getAdminPassword() { return adminPasswordInput.value.trim(); }
+  function getOperationPassword() { return getEditPassword() || getAdminPassword(); }
+
+  function getMonday(date) {
+    const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = copy.getDay();
+    const distance = day === 0 ? -6 : 1 - day;
+    copy.setDate(copy.getDate() + distance);
+    return copy;
   }
 
-  function getEditPassword() {
-    return editPasswordInput.value.trim();
+  function addDays(date, amount) {
+    const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    copy.setDate(copy.getDate() + amount);
+    return copy;
   }
 
-  function getAdminPassword() {
-    return adminPasswordInput.value.trim();
+  function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
-  function getOperationPassword() {
-    const editPassword = getEditPassword();
-    const adminPassword = getAdminPassword();
-
-    return editPassword || adminPassword;
+  function parseLocalDate(dateString) {
+    const [year, month, day] = dateString.split("-").map(Number);
+    return new Date(year, month - 1, day);
   }
 
-  function isWorkTime(dayIndex, hour) {
-    const isWeekday = dayIndex >= 0 && dayIndex <= 4;
-
-    const isMorningWork = hour >= 9 && hour < 12;
-    const isAfternoonWork = hour >= 14 && hour < 18;
-
-    return isWeekday && (isMorningWork || isAfternoonWork);
+  function formatChineseDate(date) {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   }
 
-  function getSlotId(dayIndex, hour) {
-    return `day${dayIndex}_hour${hour}`;
+  function formatMonthDay(date) {
+    return `${date.getMonth() + 1}月${date.getDate()}日`;
+  }
+
+  function getSlotId(dateString, hour) {
+    return `${dateString}_hour${String(hour).padStart(2, "0")}`;
   }
 
   function formatHour(hour) {
@@ -840,6 +859,5 @@
     });
   }
 </script>
-
 </body>
 </html>

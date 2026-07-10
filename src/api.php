@@ -1,11 +1,11 @@
 <?php
 header("Content-Type: application/json; charset=utf-8");
 
-require_once "db.php";
+require_once __DIR__ . "/db.php";
 
 $config = require __DIR__ . "/config.php";
-define("EDIT_PASSWORD", $config["edit_password"]);
-define("ADMIN_PASSWORD", $config["admin_password"]);
+define("EDIT_PASSWORD", (string)($config["edit_password"] ?? ""));
+define("ADMIN_PASSWORD", (string)($config["admin_password"] ?? ""));
 
 $days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
@@ -29,6 +29,15 @@ function getJsonInput() {
     return $data;
 }
 
+function requirePostMethod() {
+    if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+        jsonResponse([
+            "success" => false,
+            "message" => "请求方法错误"
+        ], 405);
+    }
+}
+
 function requireEditPassword($data) {
     $password = trim((string)($data["editPassword"] ?? ""));
 
@@ -39,8 +48,8 @@ function requireEditPassword($data) {
         ], 401);
     }
 
-    $isEditPasswordValid = hash_equals(EDIT_PASSWORD, $password);
-    $isAdminPasswordValid = hash_equals(ADMIN_PASSWORD, $password);
+    $isEditPasswordValid = EDIT_PASSWORD !== "" && hash_equals(EDIT_PASSWORD, $password);
+    $isAdminPasswordValid = ADMIN_PASSWORD !== "" && hash_equals(ADMIN_PASSWORD, $password);
 
     if (!$isEditPasswordValid && !$isAdminPasswordValid) {
         jsonResponse([
@@ -60,10 +69,10 @@ function requireAdminPassword($data) {
         ], 401);
     }
 
-    if (!hash_equals(ADMIN_PASSWORD, $password)) {
+    if (ADMIN_PASSWORD === "" || !hash_equals(ADMIN_PASSWORD, $password)) {
         jsonResponse([
             "success" => false,
-            "message" => "管理员密码错误，无法清空全部日程"
+            "message" => "管理员密码错误"
         ], 403);
     }
 }
@@ -96,92 +105,238 @@ function textLength($text) {
     return strlen($text);
 }
 
-function isWorkTime($dayIndex, $hour) {
-    $isWeekday = $dayIndex >= 0 && $dayIndex <= 4;
+function validateDateString($value, $fieldName = "日期") {
+    $value = trim((string)$value);
+    $date = DateTime::createFromFormat("!Y-m-d", $value);
 
-    $isMorningWork = $hour >= 9 && $hour < 12;
-    $isAfternoonWork = $hour >= 14 && $hour < 18;
+    if (!$date || $date->format("Y-m-d") !== $value) {
+        jsonResponse([
+            "success" => false,
+            "message" => $fieldName . "格式错误"
+        ], 400);
+    }
 
-    return $isWeekday && ($isMorningWork || $isAfternoonWork);
+    return $value;
+}
+
+function getWeekStart($value) {
+    $dateString = validateDateString($value, "周起始日期");
+    $date = new DateTime($dateString);
+
+    if (intval($date->format("N")) !== 1) {
+        jsonResponse([
+            "success" => false,
+            "message" => "周起始日期必须是周一"
+        ], 400);
+    }
+
+    return $dateString;
+}
+
+function getDayIndexFromDate($dateString) {
+    $date = new DateTime($dateString);
+    return intval($date->format("N")) - 1;
+}
+
+function getSlotId($dateString, $hour) {
+    return $dateString . "_hour" . str_pad((string)$hour, 2, "0", STR_PAD_LEFT);
+}
+
+function getUnavailableInfo(PDO $pdo, $dateString, $hour) {
+    $dayIndex = getDayIndexFromDate($dateString);
+    $blocked = false;
+    $reason = "";
+    $source = null;
+
+    $weeklyStmt = $pdo->prepare("
+        SELECT id, reason
+        FROM game_schedule_weekly_blocks
+        WHERE day_index = ?
+          AND start_hour <= ?
+          AND end_hour > ?
+        ORDER BY id ASC
+    ");
+    $weeklyStmt->execute([$dayIndex, $hour, $hour]);
+
+    foreach ($weeklyStmt->fetchAll() as $row) {
+        $blocked = true;
+        $reason = $row["reason"];
+        $source = "weekly";
+    }
+
+    $overrideStmt = $pdo->prepare("
+        SELECT id, override_type, reason
+        FROM game_schedule_date_overrides
+        WHERE override_date = ?
+          AND start_hour <= ?
+          AND end_hour > ?
+        ORDER BY id ASC
+    ");
+    $overrideStmt->execute([$dateString, $hour, $hour]);
+
+    foreach ($overrideStmt->fetchAll() as $row) {
+        if ($row["override_type"] === "allow") {
+            $blocked = false;
+            $reason = $row["reason"];
+            $source = "date_allow";
+        } else {
+            $blocked = true;
+            $reason = $row["reason"];
+            $source = "date_block";
+        }
+    }
+
+    return [
+        "blocked" => $blocked,
+        "reason" => $reason,
+        "source" => $source
+    ];
+}
+
+function getAvailabilityForWeek(PDO $pdo, $weekStart) {
+    $weekEnd = (new DateTime($weekStart))->modify("+6 days")->format("Y-m-d");
+
+    $weeklyStmt = $pdo->query("
+        SELECT id, day_index, start_hour, end_hour, reason
+        FROM game_schedule_weekly_blocks
+        ORDER BY day_index ASC, start_hour ASC, id ASC
+    ");
+
+    $overrideStmt = $pdo->prepare("
+        SELECT id, override_date, start_hour, end_hour, override_type, reason
+        FROM game_schedule_date_overrides
+        WHERE override_date BETWEEN ? AND ?
+        ORDER BY override_date ASC, start_hour ASC, id ASC
+    ");
+    $overrideStmt->execute([$weekStart, $weekEnd]);
+
+    return [
+        "weeklyBlocks" => $weeklyStmt->fetchAll(),
+        "dateOverrides" => $overrideStmt->fetchAll()
+    ];
+}
+
+function validateTimeRange($data) {
+    $startHour = getIntField($data, "startHour", 0, 23, "开始时间错误");
+    $endHour = getIntField($data, "endHour", 1, 24, "结束时间错误");
+
+    if ($endHour <= $startHour) {
+        jsonResponse([
+            "success" => false,
+            "message" => "结束时间必须晚于开始时间"
+        ], 400);
+    }
+
+    return [$startHour, $endHour];
+}
+
+function validateReason($data) {
+    $reason = trim((string)($data["reason"] ?? ""));
+
+    if ($reason === "") {
+        jsonResponse([
+            "success" => false,
+            "message" => "请输入原因"
+        ], 400);
+    }
+
+    if (textLength($reason) > 50) {
+        jsonResponse([
+            "success" => false,
+            "message" => "原因不能超过 50 个字符"
+        ], 400);
+    }
+
+    return $reason;
 }
 
 $action = $_GET["action"] ?? "";
 
 if ($action === "list") {
-    $stmt = $pdo->query("
-        SELECT 
-            slot_id, 
-            day_name, 
-            day_index, 
-            hour, 
-            game, 
+    $weekStart = getWeekStart($_GET["weekStart"] ?? "");
+    $weekEnd = (new DateTime($weekStart))->modify("+6 days")->format("Y-m-d");
+
+    $stmt = $pdo->prepare("
+        SELECT
+            slot_id,
+            schedule_date,
+            day_name,
+            day_index,
+            hour,
+            game,
             nickname,
             updated_at
         FROM game_schedule_slots
-        ORDER BY day_index ASC, hour ASC
+        WHERE schedule_date BETWEEN ? AND ?
+        ORDER BY schedule_date ASC, hour ASC
     ");
-
+    $stmt->execute([$weekStart, $weekEnd]);
     $items = $stmt->fetchAll();
-
-    $participantStmt = $pdo->query("
-        SELECT slot_id, nickname
-        FROM game_schedule_participants
-        ORDER BY created_at ASC, id ASC
-    ");
 
     $participantsMap = [];
 
-    foreach ($participantStmt->fetchAll() as $participant) {
-        $slotId = $participant["slot_id"];
+    if (count($items) > 0) {
+        $slotIds = array_column($items, "slot_id");
+        $placeholders = implode(",", array_fill(0, count($slotIds), "?"));
 
-        if (!isset($participantsMap[$slotId])) {
-            $participantsMap[$slotId] = [];
+        $participantStmt = $pdo->prepare("
+            SELECT slot_id, nickname
+            FROM game_schedule_participants
+            WHERE slot_id IN ($placeholders)
+            ORDER BY created_at ASC, id ASC
+        ");
+        $participantStmt->execute($slotIds);
+
+        foreach ($participantStmt->fetchAll() as $participant) {
+            $slotId = $participant["slot_id"];
+
+            if (!isset($participantsMap[$slotId])) {
+                $participantsMap[$slotId] = [];
+            }
+
+            $participantsMap[$slotId][] = $participant["nickname"];
         }
-
-        $participantsMap[$slotId][] = $participant["nickname"];
     }
 
     foreach ($items as &$item) {
-        $slotId = $item["slot_id"];
-        $item["participants"] = $participantsMap[$slotId] ?? [];
+        $item["participants"] = $participantsMap[$item["slot_id"]] ?? [];
     }
-
     unset($item);
+
+    $availability = getAvailabilityForWeek($pdo, $weekStart);
 
     jsonResponse([
         "success" => true,
-        "items" => $items
+        "weekStart" => $weekStart,
+        "weekEnd" => $weekEnd,
+        "items" => $items,
+        "weeklyBlocks" => $availability["weeklyBlocks"],
+        "dateOverrides" => $availability["dateOverrides"]
+    ]);
+}
+
+if ($action === "verifyAdmin") {
+    requirePostMethod();
+    $data = getJsonInput();
+    requireAdminPassword($data);
+
+    jsonResponse([
+        "success" => true,
+        "message" => "管理员验证成功"
     ]);
 }
 
 if ($action === "save") {
-    if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-        jsonResponse([
-            "success" => false,
-            "message" => "请求方法错误"
-        ], 405);
-    }
-
+    requirePostMethod();
     $data = getJsonInput();
     requireEditPassword($data);
 
-    $dayIndex = getIntField($data, "dayIndex", 0, 6, "星期参数错误");
+    $scheduleDate = validateDateString($data["date"] ?? "", "日程日期");
     $hour = getIntField($data, "hour", 0, 23, "时间参数错误");
-
-    if (isWorkTime($dayIndex, $hour)) {
-        jsonResponse([
-            "success" => false,
-            "message" => "周一到周五 09:00-12:00、14:00-18:00 是上班时间，不能添加日程哦。"
-        ], 403);
-    }
-
-    $slotId = "day{$dayIndex}_hour{$hour}";
-    global $days;
-    $dayName = $days[$dayIndex];
-
     $game = trim((string)($data["game"] ?? ""));
+    $slotId = getSlotId($scheduleDate, $hour);
 
-    // 游戏名留空，表示删除这个时间段的日程
+    // 留空表示删除。删除已有日程不受当前不可编辑规则限制。
     if ($game === "") {
         $stmt = $pdo->prepare("DELETE FROM game_schedule_slots WHERE slot_id = ?");
         $stmt->execute([$slotId]);
@@ -190,6 +345,15 @@ if ($action === "save") {
             "success" => true,
             "message" => "已删除日程"
         ]);
+    }
+
+    $unavailable = getUnavailableInfo($pdo, $scheduleDate, $hour);
+
+    if ($unavailable["blocked"]) {
+        jsonResponse([
+            "success" => false,
+            "message" => "该时间段不可编辑：" . ($unavailable["reason"] ?: "不可编辑")
+        ], 403);
     }
 
     if (textLength($game) > 50) {
@@ -215,12 +379,17 @@ if ($action === "save") {
         ], 400);
     }
 
+    $dayIndex = getDayIndexFromDate($scheduleDate);
+    global $days;
+    $dayName = $days[$dayIndex];
+
     $stmt = $pdo->prepare("
-        INSERT INTO game_schedule_slots 
-            (slot_id, day_name, day_index, hour, game, nickname)
-        VALUES 
-            (?, ?, ?, ?, ?, ?)
+        INSERT INTO game_schedule_slots
+            (slot_id, schedule_date, day_name, day_index, hour, game, nickname)
+        VALUES
+            (?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
+            schedule_date = VALUES(schedule_date),
             day_name = VALUES(day_name),
             day_index = VALUES(day_index),
             hour = VALUES(hour),
@@ -231,6 +400,7 @@ if ($action === "save") {
 
     $stmt->execute([
         $slotId,
+        $scheduleDate,
         $dayName,
         $dayIndex,
         $hour,
@@ -244,60 +414,13 @@ if ($action === "save") {
     ]);
 }
 
-if ($action === "clear") {
-    if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-        jsonResponse([
-            "success" => false,
-            "message" => "请求方法错误"
-        ], 405);
-    }
-
-    $data = getJsonInput();
-    requireAdminPassword($data);
-
-    $stmt = $pdo->prepare("
-        DELETE FROM game_schedule_slots
-        WHERE NOT (
-            day_index BETWEEN 0 AND 4
-            AND (
-                (hour >= 9 AND hour < 12)
-                OR
-                (hour >= 14 AND hour < 18)
-            )
-        )
-    ");
-
-    $stmt->execute();
-
-    jsonResponse([
-        "success" => true,
-        "message" => "已清空全部可编辑日程"
-    ]);
-}
-
 if ($action === "join") {
-    if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-        jsonResponse([
-            "success" => false,
-            "message" => "请求方法错误"
-        ], 405);
-    }
-
+    requirePostMethod();
     $data = getJsonInput();
-
-    // 普通编辑密码或管理员密码都可以参与
     requireEditPassword($data);
 
-    $dayIndex = getIntField($data, "dayIndex", 0, 6, "星期参数错误");
+    $scheduleDate = validateDateString($data["date"] ?? "", "日程日期");
     $hour = getIntField($data, "hour", 0, 23, "时间参数错误");
-
-    if (isWorkTime($dayIndex, $hour)) {
-        jsonResponse([
-            "success" => false,
-            "message" => "上班时间不能操作"
-        ], 403);
-    }
-
     $nickname = trim((string)($data["nickname"] ?? ""));
 
     if ($nickname === "") {
@@ -314,9 +437,7 @@ if ($action === "join") {
         ], 400);
     }
 
-    $joining = filter_var($data["joining"] ?? false, FILTER_VALIDATE_BOOLEAN);
-    $slotId = "day{$dayIndex}_hour{$hour}";
-
+    $slotId = getSlotId($scheduleDate, $hour);
     $checkStmt = $pdo->prepare("
         SELECT COUNT(*) AS count
         FROM game_schedule_slots
@@ -332,6 +453,8 @@ if ($action === "join") {
         ], 404);
     }
 
+    $joining = filter_var($data["joining"] ?? false, FILTER_VALIDATE_BOOLEAN);
+
     if ($joining) {
         $stmt = $pdo->prepare("
             INSERT IGNORE INTO game_schedule_participants
@@ -339,7 +462,6 @@ if ($action === "join") {
             VALUES
                 (?, ?)
         ");
-
         $stmt->execute([$slotId, $nickname]);
 
         jsonResponse([
@@ -352,12 +474,162 @@ if ($action === "join") {
         DELETE FROM game_schedule_participants
         WHERE slot_id = ? AND nickname = ?
     ");
-
     $stmt->execute([$slotId, $nickname]);
 
     jsonResponse([
         "success" => true,
         "message" => "已取消加入该日程"
+    ]);
+}
+
+if ($action === "clear") {
+    requirePostMethod();
+    $data = getJsonInput();
+    requireAdminPassword($data);
+
+    $weekStart = getWeekStart($data["weekStart"] ?? "");
+    $weekEnd = (new DateTime($weekStart))->modify("+6 days")->format("Y-m-d");
+
+    $stmt = $pdo->prepare("
+        SELECT slot_id, schedule_date, hour
+        FROM game_schedule_slots
+        WHERE schedule_date BETWEEN ? AND ?
+    ");
+    $stmt->execute([$weekStart, $weekEnd]);
+    $items = $stmt->fetchAll();
+
+    $deleteIds = [];
+
+    foreach ($items as $item) {
+        $unavailable = getUnavailableInfo(
+            $pdo,
+            $item["schedule_date"],
+            intval($item["hour"])
+        );
+
+        if (!$unavailable["blocked"]) {
+            $deleteIds[] = $item["slot_id"];
+        }
+    }
+
+    if (count($deleteIds) > 0) {
+        $placeholders = implode(",", array_fill(0, count($deleteIds), "?"));
+        $deleteStmt = $pdo->prepare("DELETE FROM game_schedule_slots WHERE slot_id IN ($placeholders)");
+        $deleteStmt->execute($deleteIds);
+    }
+
+    jsonResponse([
+        "success" => true,
+        "deletedCount" => count($deleteIds),
+        "message" => "已清空当前周全部可编辑日程"
+    ]);
+}
+
+if ($action === "listUnavailableAdmin") {
+    requirePostMethod();
+    $data = getJsonInput();
+    requireAdminPassword($data);
+
+    $weeklyStmt = $pdo->query("
+        SELECT id, day_index, start_hour, end_hour, reason, created_at, updated_at
+        FROM game_schedule_weekly_blocks
+        ORDER BY day_index ASC, start_hour ASC, id ASC
+    ");
+
+    $overrideStmt = $pdo->query("
+        SELECT id, override_date, start_hour, end_hour, override_type, reason, created_at, updated_at
+        FROM game_schedule_date_overrides
+        ORDER BY override_date DESC, start_hour ASC, id ASC
+    ");
+
+    jsonResponse([
+        "success" => true,
+        "weeklyBlocks" => $weeklyStmt->fetchAll(),
+        "dateOverrides" => $overrideStmt->fetchAll()
+    ]);
+}
+
+if ($action === "addWeeklyBlock") {
+    requirePostMethod();
+    $data = getJsonInput();
+    requireAdminPassword($data);
+
+    $dayIndex = getIntField($data, "dayIndex", 0, 6, "星期参数错误");
+    list($startHour, $endHour) = validateTimeRange($data);
+    $reason = validateReason($data);
+
+    $stmt = $pdo->prepare("
+        INSERT INTO game_schedule_weekly_blocks
+            (day_index, start_hour, end_hour, reason)
+        VALUES
+            (?, ?, ?, ?)
+    ");
+    $stmt->execute([$dayIndex, $startHour, $endHour, $reason]);
+
+    jsonResponse([
+        "success" => true,
+        "message" => "固定每周规则已添加"
+    ]);
+}
+
+if ($action === "deleteWeeklyBlock") {
+    requirePostMethod();
+    $data = getJsonInput();
+    requireAdminPassword($data);
+
+    $id = getIntField($data, "id", 1, PHP_INT_MAX, "规则 ID 错误");
+    $stmt = $pdo->prepare("DELETE FROM game_schedule_weekly_blocks WHERE id = ?");
+    $stmt->execute([$id]);
+
+    jsonResponse([
+        "success" => true,
+        "message" => "固定每周规则已删除"
+    ]);
+}
+
+if ($action === "addDateOverride") {
+    requirePostMethod();
+    $data = getJsonInput();
+    requireAdminPassword($data);
+
+    $overrideDate = validateDateString($data["overrideDate"] ?? "", "调整日期");
+    list($startHour, $endHour) = validateTimeRange($data);
+    $reason = validateReason($data);
+    $overrideType = (string)($data["overrideType"] ?? "");
+
+    if (!in_array($overrideType, ["block", "allow"], true)) {
+        jsonResponse([
+            "success" => false,
+            "message" => "调整类型错误"
+        ], 400);
+    }
+
+    $stmt = $pdo->prepare("
+        INSERT INTO game_schedule_date_overrides
+            (override_date, start_hour, end_hour, override_type, reason)
+        VALUES
+            (?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([$overrideDate, $startHour, $endHour, $overrideType, $reason]);
+
+    jsonResponse([
+        "success" => true,
+        "message" => "指定日期调整已添加"
+    ]);
+}
+
+if ($action === "deleteDateOverride") {
+    requirePostMethod();
+    $data = getJsonInput();
+    requireAdminPassword($data);
+
+    $id = getIntField($data, "id", 1, PHP_INT_MAX, "调整 ID 错误");
+    $stmt = $pdo->prepare("DELETE FROM game_schedule_date_overrides WHERE id = ?");
+    $stmt->execute([$id]);
+
+    jsonResponse([
+        "success" => true,
+        "message" => "指定日期调整已删除"
     ]);
 }
 
