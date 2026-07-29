@@ -102,6 +102,106 @@
       flex-wrap: wrap;
       margin-bottom: 18px;
     }
+
+    .override-section {
+      margin-top: 18px;
+    }
+    .override-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 12px;
+      font-size: 17px;
+      color: #1e293b;
+    }
+    .rule-count {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      color: #475569;
+      font-size: 12px;
+      font-weight: normal;
+      white-space: nowrap;
+    }
+    .history-rules-panel {
+      margin-top: 18px;
+      border: 1px solid #dbe2ea;
+      border-radius: 12px;
+      background: #f8fafc;
+      overflow: hidden;
+    }
+    .history-rules-panel > summary,
+    .override-week-group > summary {
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    .history-rules-panel > summary::-webkit-details-marker,
+    .override-week-group > summary::-webkit-details-marker {
+      display: none;
+    }
+    .history-rules-panel > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      color: #334155;
+      font-weight: bold;
+    }
+    .history-rules-panel > summary::before {
+      content: "▶";
+      margin-right: 8px;
+      color: #64748b;
+      font-size: 12px;
+      transition: transform .2s;
+    }
+    .history-rules-panel[open] > summary::before {
+      transform: rotate(90deg);
+    }
+    .history-rules-panel[open] > summary {
+      border-bottom: 1px solid #dbe2ea;
+    }
+    #otherWeeksOverrideList {
+      padding: 14px;
+    }
+    .override-week-group {
+      margin-bottom: 12px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: white;
+    }
+    .override-week-group:last-child {
+      margin-bottom: 0;
+    }
+    .override-week-group > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      color: #334155;
+      font-weight: bold;
+    }
+    .override-week-content {
+      padding: 0 12px 12px;
+      overflow-x: auto;
+    }
+    .override-empty {
+      padding: 18px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      color: #94a3b8;
+      text-align: center;
+      background: #f8fafc;
+    }
+    .override-table {
+      margin-top: 0;
+    }
+
     @media (max-width: 760px) {
       table { display: block; overflow-x: auto; }
       .field { min-width: 100%; }
@@ -198,10 +298,23 @@
         <button id="addOverrideBtn">添加日期调整</button>
       </div>
 
-      <table>
-        <thead><tr><th>日期</th><th>类型</th><th>时间</th><th>原因</th><th>操作</th></tr></thead>
-        <tbody id="overrideTableBody"></tbody>
-      </table>
+      <div class="override-section">
+        <h3 class="override-section-title">
+          <span>本周临时规则</span>
+          <span class="rule-count" id="currentWeekRuleCount">0 条</span>
+        </h3>
+
+        <div id="currentWeekOverrideList"></div>
+      </div>
+
+      <details class="history-rules-panel" id="otherWeeksPanel">
+        <summary>
+          <span>查看其他周的临时规则</span>
+          <span class="rule-count" id="otherWeeksRuleCount">0 条</span>
+        </summary>
+
+        <div id="otherWeeksOverrideList"></div>
+      </details>
     </section>
   </div>
 </main>
@@ -229,7 +342,11 @@
   const overrideEnd = document.getElementById("overrideEnd");
   const overrideReason = document.getElementById("overrideReason");
   const addOverrideBtn = document.getElementById("addOverrideBtn");
-  const overrideTableBody = document.getElementById("overrideTableBody");
+  const currentWeekOverrideList = document.getElementById("currentWeekOverrideList");
+  const otherWeeksOverrideList = document.getElementById("otherWeeksOverrideList");
+  const currentWeekRuleCount = document.getElementById("currentWeekRuleCount");
+  const otherWeeksRuleCount = document.getElementById("otherWeeksRuleCount");
+  const otherWeeksPanel = document.getElementById("otherWeeksPanel");
 
   fillHourSelect(weeklyStart, 0, 23, 9);
   fillHourSelect(weeklyEnd, 1, 24, 12);
@@ -344,25 +461,171 @@
   }
 
   function renderDateOverrides(items) {
-    overrideTableBody.innerHTML = "";
+    const rules = Array.isArray(items) ? [...items] : [];
+
+    rules.sort((a, b) => {
+      const dateCompare = String(a.override_date).localeCompare(String(b.override_date));
+      if (dateCompare !== 0) return dateCompare;
+      return Number(a.start_hour) - Number(b.start_hour);
+    });
+
+    const currentWeek = getCurrentWeekRange();
+    const currentWeekRules = [];
+    const otherWeekRules = [];
+
+    rules.forEach(item => {
+      const date = parseLocalDate(item.override_date);
+
+      if (date >= currentWeek.start && date <= currentWeek.end) {
+        currentWeekRules.push(item);
+      } else {
+        otherWeekRules.push(item);
+      }
+    });
+
+    currentWeekRuleCount.textContent = `${currentWeekRules.length} 条`;
+    otherWeeksRuleCount.textContent = `${otherWeekRules.length} 条`;
+
+    renderCurrentWeekRules(currentWeekRules);
+    renderOtherWeekRules(otherWeekRules);
+
+    otherWeeksPanel.style.display = otherWeekRules.length > 0 ? "" : "none";
+  }
+
+  function renderCurrentWeekRules(items) {
     if (items.length === 0) {
-      overrideTableBody.innerHTML = `<tr><td colspan="5">暂无指定日期调整</td></tr>`;
+      currentWeekOverrideList.innerHTML = `
+        <div class="override-empty">本周暂无临时开放或临时禁止规则</div>
+      `;
       return;
     }
 
-    items.forEach(item => {
-      const isAllow = item.override_type === "allow";
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${escapeHTML(item.override_date)}</td>
-        <td><span class="tag ${isAllow ? "allow" : "block"}">${isAllow ? "临时开放" : "临时禁止"}</span></td>
-        <td>${formatHour(item.start_hour)} - ${formatHour(item.end_hour)}</td>
-        <td>${escapeHTML(item.reason)}</td>
-        <td><button class="danger" data-id="${Number(item.id)}">删除</button></td>
+    currentWeekOverrideList.innerHTML = createOverrideTable(items);
+    bindOverrideDeleteButtons(currentWeekOverrideList);
+  }
+
+  function renderOtherWeekRules(items) {
+    if (items.length === 0) {
+      otherWeeksOverrideList.innerHTML = `
+        <div class="override-empty">暂无其他周的临时规则</div>
       `;
-      row.querySelector("button").addEventListener("click", () => deleteDateOverride(Number(item.id)));
-      overrideTableBody.appendChild(row);
+      return;
+    }
+
+    const grouped = {};
+
+    items.forEach(item => {
+      const week = getWeekRangeForDate(item.override_date);
+      const key = formatDate(week.start);
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          start: week.start,
+          end: week.end,
+          items: []
+        };
+      }
+
+      grouped[key].items.push(item);
     });
+
+    const groups = Object.values(grouped).sort((a, b) => {
+      const now = new Date();
+      const aDistance = Math.abs(a.start.getTime() - now.getTime());
+      const bDistance = Math.abs(b.start.getTime() - now.getTime());
+      return aDistance - bDistance;
+    });
+
+    otherWeeksOverrideList.innerHTML = groups.map(group => `
+      <details class="override-week-group">
+        <summary>
+          <span>${escapeHTML(formatWeekTitle(group.start, group.end))}</span>
+          <span class="rule-count">${group.items.length} 条</span>
+        </summary>
+        <div class="override-week-content">
+          ${createOverrideTable(group.items)}
+        </div>
+      </details>
+    `).join("");
+
+    bindOverrideDeleteButtons(otherWeeksOverrideList);
+  }
+
+  function createOverrideTable(items) {
+    const rows = items.map(item => {
+      const isAllow = item.override_type === "allow";
+
+      return `
+        <tr>
+          <td>${escapeHTML(item.override_date)}</td>
+          <td><span class="tag ${isAllow ? "allow" : "block"}">${isAllow ? "临时开放" : "临时禁止"}</span></td>
+          <td>${formatHour(item.start_hour)} - ${formatHour(item.end_hour)}</td>
+          <td>${escapeHTML(item.reason)}</td>
+          <td><button class="danger override-delete-btn" data-id="${Number(item.id)}">删除</button></td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <table class="override-table">
+        <thead>
+          <tr><th>日期</th><th>类型</th><th>时间</th><th>原因</th><th>操作</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  function bindOverrideDeleteButtons(container) {
+    container.querySelectorAll(".override-delete-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        deleteDateOverride(Number(button.dataset.id));
+      });
+    });
+  }
+
+  function getCurrentWeekRange() {
+    return getWeekRangeForDate(formatDate(new Date()));
+  }
+
+  function getWeekRangeForDate(dateValue) {
+    const date = parseLocalDate(dateValue);
+    const day = date.getDay();
+    const distanceToMonday = day === 0 ? -6 : 1 - day;
+
+    const start = new Date(date);
+    start.setDate(date.getDate() + distanceToMonday);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end };
+  }
+
+  function parseLocalDate(dateValue) {
+    const parts = String(dateValue).split("-").map(Number);
+
+    return new Date(
+      parts[0],
+      parts[1] - 1,
+      parts[2],
+      0,
+      0,
+      0,
+      0
+    );
+  }
+
+  function formatWeekTitle(start, end) {
+    const sameYear = start.getFullYear() === end.getFullYear();
+
+    if (sameYear) {
+      return `${start.getFullYear()}年${start.getMonth() + 1}月${start.getDate()}日 至 ${end.getMonth() + 1}月${end.getDate()}日`;
+    }
+
+    return `${start.getFullYear()}年${start.getMonth() + 1}月${start.getDate()}日 至 ${end.getFullYear()}年${end.getMonth() + 1}月${end.getDate()}日`;
   }
 
   async function postApi(action, body) {
