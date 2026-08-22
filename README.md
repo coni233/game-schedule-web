@@ -552,7 +552,10 @@ return [
     "db_password" => "这里填写数据库密码",
 
     "edit_password" => "这里填写网页编辑密码",
-    "admin_password" => "这里填写管理员密码"
+    "admin_password" => "这里填写管理员密码",
+
+    // 可选：用于计算"今天"的时区，默认 Asia/Shanghai
+    "timezone" => "Asia/Shanghai"
 ];
 ```
 
@@ -564,6 +567,7 @@ return [
 - `db_password`：数据库密码
 - `edit_password`：普通编辑密码
 - `admin_password`：管理员密码
+- `timezone`：可选，用于计算"今天"和"本周"的时区，默认 `Asia/Shanghai`
 
 安全建议：
 
@@ -580,6 +584,125 @@ src/config.php
 ```
 
 服务器上的 `src/config.php` 不应由 Git 管理，需要保留在服务器本地。
+
+## 日程查询 API
+
+除网页外，项目也提供只读的 JSON 接口，可以直接获取当天的游戏日程、本周的游戏日程，或查询某一天的日程。所有查询接口都不需要密码，使用 `GET` 请求即可。
+
+### 查询今天的日程
+
+```text
+GET api.php?action=today
+```
+
+返回 `date` 为当天的具体日期（按照配置中的时区计算）。
+
+示例返回：
+
+```json
+{
+  "success": true,
+  "date": "2026-08-22",
+  "dayName": "周六",
+  "dayIndex": 5,
+  "items": [
+    {
+      "slot_id": "2026-08-22_hour20",
+      "schedule_date": "2026-08-22",
+      "day_name": "周六",
+      "day_index": 5,
+      "hour": 20,
+      "game": "APEX",
+      "nickname": "cn",
+      "updated_at": "2026-08-22 19:30:00",
+      "participants": ["吉诺", "robotmaid"]
+    }
+  ]
+}
+```
+
+### 查询某一天的日程
+
+```text
+GET api.php?action=day&date=2026-08-22
+```
+
+`date` 为可选的 `YYYY-MM-DD` 格式日期，省略时默认为今天。返回结构与 `today` 相同。
+
+### 查询本周的日程
+
+```text
+GET api.php?action=week
+```
+
+默认返回本周（周一到周日）的日程，并按天分组。
+
+也可以通过参数查询其他周：
+
+```text
+GET api.php?action=week&weekStart=2026-08-17
+GET api.php?action=week&date=2026-08-20
+```
+
+- `weekStart`：该周的周一日期，必须是 `YYYY-MM-DD` 格式的周一
+- `date`：该周内的任意一天，会自动定位到所在周的周一
+- 两个参数都省略时，返回本周
+
+示例返回：
+
+```json
+{
+  "success": true,
+  "weekStart": "2026-08-17",
+  "weekEnd": "2026-08-23",
+  "days": [
+    {
+      "date": "2026-08-17",
+      "dayName": "周一",
+      "dayIndex": 0,
+      "items": []
+    },
+    {
+      "date": "2026-08-22",
+      "dayName": "周六",
+      "dayIndex": 5,
+      "items": [
+        {
+          "slot_id": "2026-08-22_hour20",
+          "schedule_date": "2026-08-22",
+          "day_name": "周六",
+          "day_index": 5,
+          "hour": 20,
+          "game": "APEX",
+          "nickname": "cn",
+          "updated_at": "2026-08-22 19:30:00",
+          "participants": ["吉诺", "robotmaid"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 日程条目字段说明
+
+每个 `items` 中的日程条目包含：
+
+| 字段 | 说明 |
+| --- | --- |
+| `slot_id` | 日程唯一 ID，格式为 `日期_hour小时` |
+| `schedule_date` | 日程日期 |
+| `day_name` | 星期名称 |
+| `day_index` | 星期索引，0 = 周一，6 = 周日 |
+| `hour` | 开始小时 |
+| `game` | 游戏名称 |
+| `nickname` | 主持人昵称 |
+| `updated_at` | 最后更新时间 |
+| `participants` | 参与者昵称数组 |
+
+如果当天没有日程，`items` 为空数组；本周接口中，没有日程的日期 `items` 同样为空数组。
+
+> 提示：如果需要同时获取不可编辑时间规则（固定每周规则和指定日期调整），可以使用原有接口 `GET api.php?action=list&weekStart=2026-08-17`，返回中包含 `weeklyBlocks` 和 `dateOverrides`。
 
 ## 权限说明
 
@@ -910,6 +1033,14 @@ APEX 人齐了，今晚 20:00 开。
 方便排查误操作，也更适合多人协作。
 
 ## 更新日志
+
+### v2.1
+
+- 新增只读日程查询 API
+- 支持 `today` 查询当天的游戏日程
+- 支持 `day` 查询指定日期的游戏日程
+- 支持 `week` 查询本周或指定一周的游戏日程，并按天分组返回
+- 新增可选的 `timezone` 配置项，用于正确计算"今天"和"本周"
 
 ### v2.0
 

@@ -7,6 +7,12 @@ $config = require __DIR__ . "/config.php";
 define("EDIT_PASSWORD", (string)($config["edit_password"] ?? ""));
 define("ADMIN_PASSWORD", (string)($config["admin_password"] ?? ""));
 
+$timezone = (string)($config["timezone"] ?? "Asia/Shanghai");
+
+if ($timezone !== "") {
+    date_default_timezone_set($timezone);
+}
+
 $days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
 function jsonResponse($data, $statusCode = 200) {
@@ -216,6 +222,63 @@ function getAvailabilityForWeek(PDO $pdo, $weekStart) {
     ];
 }
 
+function loadItemsForDateRange(PDO $pdo, $dateStart, $dateEnd) {
+    $stmt = $pdo->prepare("
+        SELECT
+            slot_id,
+            schedule_date,
+            day_name,
+            day_index,
+            hour,
+            game,
+            nickname,
+            updated_at
+        FROM game_schedule_slots
+        WHERE schedule_date BETWEEN ? AND ?
+        ORDER BY schedule_date ASC, hour ASC
+    ");
+    $stmt->execute([$dateStart, $dateEnd]);
+    $items = $stmt->fetchAll();
+
+    if (count($items) === 0) {
+        return [];
+    }
+
+    $slotIds = array_column($items, "slot_id");
+    $placeholders = implode(",", array_fill(0, count($slotIds), "?"));
+
+    $participantStmt = $pdo->prepare("
+        SELECT slot_id, nickname
+        FROM game_schedule_participants
+        WHERE slot_id IN ($placeholders)
+        ORDER BY created_at ASC, id ASC
+    ");
+    $participantStmt->execute($slotIds);
+
+    $participantsMap = [];
+
+    foreach ($participantStmt->fetchAll() as $participant) {
+        $participantsMap[$participant["slot_id"]][] = $participant["nickname"];
+    }
+
+    foreach ($items as &$item) {
+        $item["participants"] = $participantsMap[$item["slot_id"]] ?? [];
+    }
+    unset($item);
+
+    return $items;
+}
+
+function getMondayOf($dateString) {
+    $date = new DateTime($dateString);
+    $offset = intval($date->format("N")) - 1;
+    return $date->modify("-" . $offset . " days")->format("Y-m-d");
+}
+
+function getThisWeekStart() {
+    return getMondayOf(date("Y-m-d"));
+}
+
 function validateTimeRange($data) {
     $startHour = getIntField($data, "startHour", 0, 23, "开始时间错误");
     $endHour = getIntField($data, "endHour", 1, 24, "结束时间错误");
@@ -256,52 +319,7 @@ if ($action === "list") {
     $weekStart = getWeekStart($_GET["weekStart"] ?? "");
     $weekEnd = (new DateTime($weekStart))->modify("+6 days")->format("Y-m-d");
 
-    $stmt = $pdo->prepare("
-        SELECT
-            slot_id,
-            schedule_date,
-            day_name,
-            day_index,
-            hour,
-            game,
-            nickname,
-            updated_at
-        FROM game_schedule_slots
-        WHERE schedule_date BETWEEN ? AND ?
-        ORDER BY schedule_date ASC, hour ASC
-    ");
-    $stmt->execute([$weekStart, $weekEnd]);
-    $items = $stmt->fetchAll();
-
-    $participantsMap = [];
-
-    if (count($items) > 0) {
-        $slotIds = array_column($items, "slot_id");
-        $placeholders = implode(",", array_fill(0, count($slotIds), "?"));
-
-        $participantStmt = $pdo->prepare("
-            SELECT slot_id, nickname
-            FROM game_schedule_participants
-            WHERE slot_id IN ($placeholders)
-            ORDER BY created_at ASC, id ASC
-        ");
-        $participantStmt->execute($slotIds);
-
-        foreach ($participantStmt->fetchAll() as $participant) {
-            $slotId = $participant["slot_id"];
-
-            if (!isset($participantsMap[$slotId])) {
-                $participantsMap[$slotId] = [];
-            }
-
-            $participantsMap[$slotId][] = $participant["nickname"];
-        }
-    }
-
-    foreach ($items as &$item) {
-        $item["participants"] = $participantsMap[$item["slot_id"]] ?? [];
-    }
-    unset($item);
+    $items = loadItemsForDateRange($pdo, $weekStart, $weekEnd);
 
     $availability = getAvailabilityForWeek($pdo, $weekStart);
 
@@ -312,6 +330,62 @@ if ($action === "list") {
         "items" => $items,
         "weeklyBlocks" => $availability["weeklyBlocks"],
         "dateOverrides" => $availability["dateOverrides"]
+    ]);
+}
+
+if ($action === "today" || $action === "day") {
+    $dateString = validateDateString($_GET["date"] ?? date("Y-m-d"), "日期");
+    $dayIndex = getDayIndexFromDate($dateString);
+    $dayName = $days[$dayIndex];
+
+    $items = loadItemsForDateRange($pdo, $dateString, $dateString);
+
+    jsonResponse([
+        "success" => true,
+        "date" => $dateString,
+        "dayName" => $dayName,
+        "dayIndex" => $dayIndex,
+        "items" => $items
+    ]);
+}
+
+if ($action === "week") {
+    if (isset($_GET["weekStart"])) {
+        $weekStart = getWeekStart($_GET["weekStart"]);
+    } elseif (isset($_GET["date"])) {
+        $dateString = validateDateString($_GET["date"], "日期");
+        $weekStart = getMondayOf($dateString);
+    } else {
+        $weekStart = getThisWeekStart();
+    }
+
+    $weekEnd = (new DateTime($weekStart))->modify("+6 days")->format("Y-m-d");
+    $items = loadItemsForDateRange($pdo, $weekStart, $weekEnd);
+    $dayList = [];
+
+    for ($i = 0; $i < 7; $i++) {
+        $date = (new DateTime($weekStart))->modify("+{$i} days")->format("Y-m-d");
+        $dayItems = [];
+
+        foreach ($items as $item) {
+            if ($item["schedule_date"] === $date) {
+                $dayItems[] = $item;
+            }
+        }
+
+        $dayList[] = [
+            "date" => $date,
+            "dayName" => $days[$i],
+            "dayIndex" => $i,
+            "items" => $dayItems
+        ];
+    }
+
+    jsonResponse([
+        "success" => true,
+        "weekStart" => $weekStart,
+        "weekEnd" => $weekEnd,
+        "days" => $dayList
     ]);
 }
 
