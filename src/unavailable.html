@@ -4,34 +4,128 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>管理不可编辑时间</title>
+  <script>
+    (function () {
+      var choice = "system";
+
+      try {
+        var stored = localStorage.getItem("gameScheduleTheme");
+        if (stored === "light" || stored === "dark") choice = stored;
+      } catch (error) {
+        choice = "system";
+      }
+
+      var isDark = choice === "dark"
+        || (choice === "system" && window.matchMedia
+          && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+      document.documentElement.dataset.theme = isDark ? "dark" : "light";
+      document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+    })();
+  </script>
   <style>
+    :root {
+      color-scheme: light;
+      --page-bg: #f5f6fa;
+      --text: #1f2937;
+      --header-bg: #24292f;
+      --header-text: #ffffff;
+      --card-bg: #ffffff;
+      --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      --note-text: #64748b;
+      --label-text: #475569;
+      --input-bg: #ffffff;
+      --input-border: #d1d5db;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --secondary: #64748b;
+      --secondary-hover: #475569;
+      --status-text: #2563eb;
+      --border: #e5e7eb;
+      --th-bg: #f8fafc;
+      --tag-block-bg: #fee2e2;
+      --tag-block-text: #991b1b;
+      --tag-allow-bg: #dcfce7;
+      --tag-allow-text: #166534;
+      --section-title: #1e293b;
+      --count-bg: #e2e8f0;
+      --count-text: #475569;
+      --history-border: #dbe2ea;
+      --history-bg: #f8fafc;
+      --summary-text: #334155;
+      --marker-text: #64748b;
+      --group-border: #e2e8f0;
+      --group-bg: #ffffff;
+      --empty-border: #cbd5e1;
+      --empty-text: #94a3b8;
+      --empty-bg: #f8fafc;
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --page-bg: #0b1220;
+      --text: #dbe3ee;
+      --header-bg: #111c2f;
+      --header-text: #e8eef7;
+      --card-bg: #162033;
+      --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+      --note-text: #93a3b8;
+      --label-text: #a2b2c7;
+      --input-bg: #0f172a;
+      --input-border: #33415a;
+      --status-text: #7dd3fc;
+      --border: #26334a;
+      --th-bg: #1a2436;
+      --tag-block-bg: #4a1f26;
+      --tag-block-text: #fca5a5;
+      --tag-allow-bg: #143528;
+      --tag-allow-text: #86efac;
+      --section-title: #e2e8f0;
+      --count-bg: #223049;
+      --count-text: #b3c1d6;
+      --history-border: #26334a;
+      --history-bg: #131c2b;
+      --summary-text: #d3dcea;
+      --marker-text: #93a3b8;
+      --group-border: #26334a;
+      --group-bg: #1a2436;
+      --empty-border: #33415a;
+      --empty-text: #7b8ba1;
+      --empty-bg: #131c2b;
+    }
+
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, "Microsoft YaHei", sans-serif;
-      background: #f5f6fa;
-      color: #1f2937;
+      background: var(--page-bg);
+      color: var(--text);
+      transition: background-color 0.2s, color 0.2s;
     }
     header {
       padding: 20px;
-      background: #24292f;
-      color: white;
+      background: var(--header-bg);
+      color: var(--header-text);
       text-align: center;
+      transition: background-color 0.2s;
     }
     main {
       width: min(1100px, 94%);
       margin: 24px auto 50px;
     }
     .card {
-      background: white;
+      background: var(--card-bg);
       border-radius: 14px;
       padding: 20px;
       margin-bottom: 20px;
-      box-shadow: 0 4px 16px rgba(0,0,0,.08);
+      box-shadow: var(--card-shadow);
+      transition: background-color 0.2s, box-shadow 0.2s;
     }
     h2 { margin-top: 0; }
     .note {
-      color: #64748b;
+      color: var(--note-text);
       line-height: 1.7;
     }
     .auth-row,
@@ -48,31 +142,33 @@
       min-width: 150px;
       flex: 1;
     }
-    label { font-size: 14px; color: #475569; }
+    label { font-size: 14px; color: var(--label-text); }
     input, select {
       padding: 9px 10px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--input-border);
       border-radius: 8px;
       font-size: 14px;
-      background: white;
+      background: var(--input-bg);
+      color: var(--text);
+      transition: background-color 0.2s, border-color 0.2s, color 0.2s;
     }
     button {
       border: none;
       border-radius: 8px;
       padding: 9px 14px;
-      background: #2563eb;
+      background: var(--accent);
       color: white;
       cursor: pointer;
       font-size: 14px;
     }
-    button:hover { background: #1d4ed8; }
-    .danger { background: #ef4444; }
-    .danger:hover { background: #dc2626; }
-    .secondary { background: #64748b; }
-    .secondary:hover { background: #475569; }
+    button:hover { background: var(--accent-hover); }
+    .danger { background: var(--danger); }
+    .danger:hover { background: var(--danger-hover); }
+    .secondary { background: var(--secondary); }
+    .secondary:hover { background: var(--secondary-hover); }
     .status {
       margin-top: 12px;
-      color: #2563eb;
+      color: var(--status-text);
       min-height: 20px;
     }
     table {
@@ -82,26 +178,36 @@
     }
     th, td {
       padding: 10px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--border);
       text-align: left;
       vertical-align: middle;
     }
-    th { background: #f8fafc; }
+    th { background: var(--th-bg); }
     .tag {
       display: inline-block;
       padding: 3px 8px;
       border-radius: 999px;
       font-size: 12px;
     }
-    .tag.block { background: #fee2e2; color: #991b1b; }
-    .tag.allow { background: #dcfce7; color: #166534; }
+    .tag.block { background: var(--tag-block-bg); color: var(--tag-block-text); }
+    .tag.allow { background: var(--tag-allow-bg); color: var(--tag-allow-text); }
     .hidden { display: none; }
     .toolbar {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      align-items: center;
       margin-bottom: 18px;
     }
+    .theme-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      font-size: 14px;
+      color: var(--label-text);
+    }
+    .theme-field select { padding: 8px 10px; }
 
     .override-section {
       margin-top: 18px;
@@ -113,23 +219,23 @@
       gap: 12px;
       margin: 0 0 12px;
       font-size: 17px;
-      color: #1e293b;
+      color: var(--section-title);
     }
     .rule-count {
       display: inline-block;
       padding: 3px 9px;
       border-radius: 999px;
-      background: #e2e8f0;
-      color: #475569;
+      background: var(--count-bg);
+      color: var(--count-text);
       font-size: 12px;
       font-weight: normal;
       white-space: nowrap;
     }
     .history-rules-panel {
       margin-top: 18px;
-      border: 1px solid #dbe2ea;
+      border: 1px solid var(--history-border);
       border-radius: 12px;
-      background: #f8fafc;
+      background: var(--history-bg);
       overflow: hidden;
     }
     .history-rules-panel > summary,
@@ -148,13 +254,13 @@
       justify-content: space-between;
       gap: 12px;
       padding: 14px 16px;
-      color: #334155;
+      color: var(--summary-text);
       font-weight: bold;
     }
     .history-rules-panel > summary::before {
       content: "▶";
       margin-right: 8px;
-      color: #64748b;
+      color: var(--marker-text);
       font-size: 12px;
       transition: transform .2s;
     }
@@ -162,7 +268,7 @@
       transform: rotate(90deg);
     }
     .history-rules-panel[open] > summary {
-      border-bottom: 1px solid #dbe2ea;
+      border-bottom: 1px solid var(--history-border);
     }
     #otherWeeksOverrideList {
       padding: 14px;
@@ -170,9 +276,9 @@
     .override-week-group {
       margin-bottom: 12px;
       overflow: hidden;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--group-border);
       border-radius: 10px;
-      background: white;
+      background: var(--group-bg);
     }
     .override-week-group:last-child {
       margin-bottom: 0;
@@ -183,7 +289,7 @@
       justify-content: space-between;
       gap: 12px;
       padding: 12px 14px;
-      color: #334155;
+      color: var(--summary-text);
       font-weight: bold;
     }
     .override-week-content {
@@ -192,11 +298,11 @@
     }
     .override-empty {
       padding: 18px;
-      border: 1px dashed #cbd5e1;
+      border: 1px dashed var(--empty-border);
       border-radius: 10px;
-      color: #94a3b8;
+      color: var(--empty-text);
       text-align: center;
-      background: #f8fafc;
+      background: var(--empty-bg);
     }
     .override-table {
       margin-top: 0;
@@ -205,6 +311,7 @@
     @media (max-width: 760px) {
       table { display: block; overflow-x: auto; }
       .field { min-width: 100%; }
+      .theme-field { margin-left: 0; }
     }
   </style>
 </head>
@@ -217,6 +324,14 @@
   <div class="toolbar">
     <button class="secondary" id="backBtn">返回日程表</button>
     <button id="refreshBtn">刷新规则</button>
+    <label class="theme-field">
+      主题
+      <select id="themeSelect">
+        <option value="system">跟随系统</option>
+        <option value="light">浅色</option>
+        <option value="dark">深色</option>
+      </select>
+    </label>
   </div>
 
   <section class="card" id="authCard">
@@ -327,6 +442,54 @@
   const authStatus = document.getElementById("authStatus");
   const managerContent = document.getElementById("managerContent");
   const refreshBtn = document.getElementById("refreshBtn");
+  const themeSelect = document.getElementById("themeSelect");
+  const systemThemeQuery = typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-color-scheme: dark)")
+    : { matches: false };
+
+  function getThemeChoice() {
+    try {
+      const stored = localStorage.getItem("gameScheduleTheme");
+      return stored === "light" || stored === "dark" ? stored : "system";
+    } catch (error) {
+      return "system";
+    }
+  }
+
+  function applyTheme(choice) {
+    const isDark = choice === "dark" || (choice === "system" && systemThemeQuery.matches);
+    document.documentElement.dataset.theme = isDark ? "dark" : "light";
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+    if (themeSelect.value !== choice) themeSelect.value = choice;
+  }
+
+  function saveThemeChoice(choice) {
+    try {
+      if (choice === "system") localStorage.removeItem("gameScheduleTheme");
+      else localStorage.setItem("gameScheduleTheme", choice);
+    } catch (error) {
+      console.warn("保存主题设置失败", error);
+    }
+  }
+
+  themeSelect.value = getThemeChoice();
+  applyTheme(themeSelect.value);
+
+  themeSelect.addEventListener("change", () => {
+    saveThemeChoice(themeSelect.value);
+    applyTheme(themeSelect.value);
+  });
+
+  const onSystemThemeChange = () => {
+    if (getThemeChoice() === "system") applyTheme("system");
+  };
+
+  if (typeof systemThemeQuery.addEventListener === "function") {
+    systemThemeQuery.addEventListener("change", onSystemThemeChange);
+  } else if (typeof systemThemeQuery.addListener === "function") {
+    systemThemeQuery.addListener(onSystemThemeChange);
+  }
+
   const backBtn = document.getElementById("backBtn");
 
   const weeklyDay = document.getElementById("weeklyDay");

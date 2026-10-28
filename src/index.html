@@ -4,23 +4,130 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>cn的游戏日程表</title>
+  <script>
+    (function () {
+      var choice = "system";
+
+      try {
+        var stored = localStorage.getItem("gameScheduleTheme");
+        if (stored === "light" || stored === "dark") choice = stored;
+      } catch (error) {
+        choice = "system";
+      }
+
+      var isDark = choice === "dark"
+        || (choice === "system" && window.matchMedia
+          && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+      document.documentElement.dataset.theme = isDark ? "dark" : "light";
+      document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+    })();
+  </script>
   <style>
+    :root {
+      color-scheme: light;
+      --page-bg: #f5f6fa;
+      --text: #333333;
+      --header-bg: #24292f;
+      --header-text: #ffffff;
+      --hint-text: #666666;
+      --status-text: #2563eb;
+      --panel-bg: #ffffff;
+      --panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      --title-text: #1e293b;
+      --input-bg: #ffffff;
+      --input-border: #d1d5db;
+      --focus-border: #2563eb;
+      --focus-ring: rgba(37, 99, 235, 0.15);
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --manage: #7c3aed;
+      --manage-hover: #6d28d9;
+      --secondary: #64748b;
+      --secondary-hover: #475569;
+      --calendar-bg: #ffffff;
+      --cell-border: #e5e7eb;
+      --head-bg: #f0f2f5;
+      --date-text: #64748b;
+      --time-bg: #fafafa;
+      --time-text: #666666;
+      --slot-hover: #eef6ff;
+      --game-bg: #dff3ff;
+      --game-text: #0f4c81;
+      --blocked-bg: #f3f4f6;
+      --blocked-text: #999999;
+      --override-ring: #86efac;
+      --nickname-text: #64748b;
+      --participant-text: #475569;
+      --work-text: #777777;
+      --work-source-text: #aaaaaa;
+      --empty-text: #bbbbbb;
+      --mask-bg: rgba(15, 23, 42, 0.45);
+      --modal-bg: #ffffff;
+      --modal-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+      --modal-title: #1e293b;
+      --modal-info: #475569;
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --page-bg: #0b1220;
+      --text: #dbe3ee;
+      --header-bg: #111c2f;
+      --header-text: #e8eef7;
+      --hint-text: #93a3b8;
+      --status-text: #7dd3fc;
+      --panel-bg: #162033;
+      --panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+      --title-text: #e2e8f0;
+      --input-bg: #0f172a;
+      --input-border: #33415a;
+      --focus-border: #60a5fa;
+      --focus-ring: rgba(96, 165, 250, 0.25);
+      --calendar-bg: #131c2b;
+      --cell-border: #26334a;
+      --head-bg: #1a2436;
+      --date-text: #93a3b8;
+      --time-bg: #111a29;
+      --time-text: #93a3b8;
+      --slot-hover: #1b2b42;
+      --game-bg: #12304a;
+      --game-text: #bae6fd;
+      --blocked-bg: #151d2b;
+      --blocked-text: #5f7088;
+      --override-ring: #4ade80;
+      --nickname-text: #93a3b8;
+      --participant-text: #aebdd1;
+      --work-text: #7d8ba1;
+      --work-source-text: #5f7088;
+      --empty-text: #4d5d75;
+      --mask-bg: rgba(2, 6, 23, 0.7);
+      --modal-bg: #162033;
+      --modal-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      --modal-title: #e2e8f0;
+      --modal-info: #a9b7c9;
+    }
+
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, "Microsoft YaHei", sans-serif;
-      background: #f5f6fa;
-      color: #333;
+      background: var(--page-bg);
+      color: var(--text);
+      transition: background-color 0.2s, color 0.2s;
     }
     header {
       padding: 20px;
-      background: #24292f;
-      color: white;
+      background: var(--header-bg);
+      color: var(--header-text);
       text-align: center;
+      transition: background-color 0.2s;
     }
     .hint {
       text-align: center;
-      color: #666;
+      color: var(--hint-text);
       margin: 14px auto;
       line-height: 1.7;
       padding: 0 16px;
@@ -28,7 +135,7 @@
     .status {
       text-align: center;
       margin: 12px auto 18px;
-      color: #2563eb;
+      color: var(--status-text);
       font-size: 14px;
     }
     .user-panel,
@@ -36,15 +143,16 @@
       width: 95%;
       max-width: 980px;
       margin: 18px auto;
-      background: white;
+      background: var(--panel-bg);
       border-radius: 12px;
       padding: 16px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      box-shadow: var(--panel-shadow);
       display: flex;
       gap: 12px;
       justify-content: center;
       align-items: center;
       flex-wrap: wrap;
+      transition: background-color 0.2s, box-shadow 0.2s;
     }
     .week-panel {
       max-width: 760px;
@@ -54,7 +162,7 @@
       min-width: 220px;
       text-align: center;
       font-weight: bold;
-      color: #1e293b;
+      color: var(--title-text);
     }
     .form-group {
       display: flex;
@@ -62,16 +170,21 @@
       gap: 6px;
       font-size: 14px;
     }
-    input {
+    input,
+    select {
       padding: 8px 10px;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--input-border);
       border-radius: 8px;
       font-size: 14px;
       outline: none;
+      background: var(--input-bg);
+      color: var(--text);
+      transition: background-color 0.2s, border-color 0.2s, color 0.2s;
     }
-    input:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    input:focus,
+    select:focus {
+      border-color: var(--focus-border);
+      box-shadow: 0 0 0 2px var(--focus-ring);
     }
     .toolbar {
       text-align: center;
@@ -83,18 +196,18 @@
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      background: #2563eb;
+      background: var(--accent);
       color: white;
       font-size: 14px;
       margin: 4px;
     }
-    button:hover { background: #1d4ed8; }
-    .clear-btn { background: #ef4444; }
-    .clear-btn:hover { background: #dc2626; }
-    .manage-btn { background: #7c3aed; }
-    .manage-btn:hover { background: #6d28d9; }
-    .secondary-btn { background: #64748b; }
-    .secondary-btn:hover { background: #475569; }
+    button:hover { background: var(--accent-hover); }
+    .clear-btn { background: var(--danger); }
+    .clear-btn:hover { background: var(--danger-hover); }
+    .manage-btn { background: var(--manage); }
+    .manage-btn:hover { background: var(--manage-hover); }
+    .secondary-btn { background: var(--secondary); }
+    .secondary-btn:hover { background: var(--secondary-hover); }
     .calendar-wrapper {
       width: 95%;
       margin: 0 auto 40px;
@@ -104,18 +217,19 @@
       width: 100%;
       min-width: 980px;
       border-collapse: collapse;
-      background: white;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      background: var(--calendar-bg);
+      box-shadow: var(--panel-shadow);
       border-radius: 12px;
       overflow: hidden;
+      transition: background-color 0.2s;
     }
     .calendar th,
     .calendar td {
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--cell-border);
       text-align: center;
     }
     .calendar th {
-      background: #f0f2f5;
+      background: var(--head-bg);
       height: 58px;
       font-weight: bold;
       padding: 5px;
@@ -124,14 +238,14 @@
       display: block;
       margin-top: 4px;
       font-size: 12px;
-      color: #64748b;
+      color: var(--date-text);
       font-weight: normal;
     }
     .time-cell {
       width: 90px;
-      background: #fafafa;
+      background: var(--time-bg);
       font-size: 14px;
-      color: #666;
+      color: var(--time-text);
     }
     .slot {
       width: 140px;
@@ -142,21 +256,21 @@
       vertical-align: top;
       padding: 6px;
     }
-    .slot:hover { background: #eef6ff; }
+    .slot:hover { background: var(--slot-hover); }
     .slot.has-game {
-      background: #dff3ff;
-      color: #0f4c81;
+      background: var(--game-bg);
+      color: var(--game-text);
       font-weight: bold;
     }
     .slot.unavailable {
-      background: #f3f4f6;
-      color: #999;
+      background: var(--blocked-bg);
+      color: var(--blocked-text);
       cursor: not-allowed;
       font-weight: normal;
     }
-    .slot.unavailable:hover { background: #f3f4f6; }
+    .slot.unavailable:hover { background: var(--blocked-bg); }
     .slot.override-open {
-      box-shadow: inset 0 0 0 2px #86efac;
+      box-shadow: inset 0 0 0 2px var(--override-ring);
     }
     .game-title {
       font-size: 14px;
@@ -167,17 +281,17 @@
     .nickname-label,
     .participants-label {
       font-size: 12px;
-      color: #64748b;
+      color: var(--nickname-text);
       margin-top: 5px;
       font-weight: normal;
       line-height: 1.4;
       word-break: break-word;
     }
-    .participants-label { color: #475569; }
+    .participants-label { color: var(--participant-text); }
     .work-label {
       font-size: 13px;
       margin-top: 12px;
-      color: #777;
+      color: var(--work-text);
       line-height: 1.5;
       word-break: break-word;
     }
@@ -185,17 +299,17 @@
       display: block;
       margin-top: 4px;
       font-size: 11px;
-      color: #aaa;
+      color: var(--work-source-text);
     }
     .empty-label {
       font-size: 12px;
-      color: #bbb;
+      color: var(--empty-text);
       margin-top: 14px;
     }
     .modal-mask {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.45);
+      background: var(--mask-bg);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -206,17 +320,17 @@
     .modal-card {
       width: 100%;
       max-width: 430px;
-      background: white;
+      background: var(--modal-bg);
       border-radius: 14px;
       padding: 22px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+      box-shadow: var(--modal-shadow);
     }
     .modal-card h3 {
       margin: 0 0 12px;
-      color: #1e293b;
+      color: var(--modal-title);
     }
     .modal-info {
-      color: #475569;
+      color: var(--modal-info);
       line-height: 1.7;
       margin-bottom: 14px;
       word-break: break-word;
@@ -248,7 +362,8 @@
         flex-direction: column;
       }
       .form-group { justify-content: space-between; }
-      input { flex: 1; }
+      input,
+      select { flex: 1; }
       .modal-actions { justify-content: stretch; }
       .modal-actions button { flex: 1; }
     }
@@ -276,6 +391,14 @@
   <div class="form-group">
     <label for="adminPasswordInput">管理员密码</label>
     <input id="adminPasswordInput" type="password" placeholder="可执行全部操作" />
+  </div>
+  <div class="form-group">
+    <label for="themeSelect">主题</label>
+    <select id="themeSelect">
+      <option value="system">跟随系统</option>
+      <option value="light">浅色</option>
+      <option value="dark">深色</option>
+    </select>
   </div>
 </div>
 
@@ -333,6 +456,54 @@
   const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
   const startHour = 8;
   const endHour = 24;
+
+  const themeSelect = document.getElementById("themeSelect");
+  const systemThemeQuery = typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-color-scheme: dark)")
+    : { matches: false };
+
+  function getThemeChoice() {
+    try {
+      const stored = localStorage.getItem("gameScheduleTheme");
+      return stored === "light" || stored === "dark" ? stored : "system";
+    } catch (error) {
+      return "system";
+    }
+  }
+
+  function applyTheme(choice) {
+    const isDark = choice === "dark" || (choice === "system" && systemThemeQuery.matches);
+    document.documentElement.dataset.theme = isDark ? "dark" : "light";
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+    if (themeSelect.value !== choice) themeSelect.value = choice;
+  }
+
+  function saveThemeChoice(choice) {
+    try {
+      if (choice === "system") localStorage.removeItem("gameScheduleTheme");
+      else localStorage.setItem("gameScheduleTheme", choice);
+    } catch (error) {
+      console.warn("保存主题设置失败", error);
+    }
+  }
+
+  themeSelect.value = getThemeChoice();
+  applyTheme(themeSelect.value);
+
+  themeSelect.addEventListener("change", () => {
+    saveThemeChoice(themeSelect.value);
+    applyTheme(themeSelect.value);
+  });
+
+  const onSystemThemeChange = () => {
+    if (getThemeChoice() === "system") applyTheme("system");
+  };
+
+  if (typeof systemThemeQuery.addEventListener === "function") {
+    systemThemeQuery.addEventListener("change", onSystemThemeChange);
+  } else if (typeof systemThemeQuery.addListener === "function") {
+    systemThemeQuery.addListener(onSystemThemeChange);
+  }
 
   const calendarBody = document.getElementById("calendarBody");
   const statusEl = document.getElementById("status");
